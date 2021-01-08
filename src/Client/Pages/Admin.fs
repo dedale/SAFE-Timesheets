@@ -1,2 +1,2 @@
-﻿module Admin
+﻿module Pages.Admin
 

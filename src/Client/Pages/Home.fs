@@ -1,2 +1,2 @@
-﻿module Home
+﻿module Pages.Home
 

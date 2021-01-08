@@ -7,7 +7,7 @@ open Shared
 
 let webApp =
     router {
-        get Route.hello (json "Hello from SAFE!")
+        post Route.login Handlers.Login.login
     }
 
 let app =
