@@ -5,6 +5,9 @@
     <DefineConstants>FABLE_COMPILER</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Pages\Login.fs" />
+    <Compile Include="Pages\Home.fs" />
+    <Compile Include="Pages\Admin.fs" />
     <None Include="index.html" />
     <Compile Include="Index.fs" />
     <Compile Include="App.fs" />
