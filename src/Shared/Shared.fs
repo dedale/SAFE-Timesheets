@@ -7,6 +7,7 @@ module Route =
     let costCenterCamel = "/api/cost_center"
     let costCenterSpinal = "/api/cost-center"
     let costCenter = costCenterCamel
+    let task = "/api/task"
 
 open System
 
@@ -82,3 +83,16 @@ type CostCenter = {
     Id: CostCenterId
     Name: string
 }
+
+type TaskId = TaskId of int
+
+module TaskId =
+    let value (TaskId id) = id
+    let route (TaskId id) = sprintf "/api/task/%i" id
+
+type Task = {
+    Id: TaskId
+    Name: string
+    CostCenterId: CostCenterId
+}
+

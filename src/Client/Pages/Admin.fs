@@ -28,10 +28,15 @@ type AddCostCenterResult = Result<CostCenter, string>
 // TODO Edit
 type DelCostCenterResult = Result<bool, string>
 
+type AddTaskResult = Result<Task, string>
+// TODO Edit
+type DelTaskResult = Result<bool, string>
+
 type Tab =
     | Users
     | Teams
     | CostCenters
+    | Tasks
 
 type State =
     { User : LoggedUser
@@ -52,6 +57,12 @@ type State =
       CostCenters : CostCenter list
       TryAddCostCenter : Deferred<AddCostCenterResult>
       TryDelCostCenter : Deferred<DelCostCenterResult>
+
+      NewTaskName : string
+      NewTaskCostCenterId : CostCenterId
+      Tasks : Task list
+      TryAddTask : Deferred<AddTaskResult>
+      TryDelTask : Deferred<DelTaskResult>
     }
 
 type Msg =
@@ -69,6 +80,11 @@ type Msg =
     | NewCostCenterChanged of string
     | AddCostCenterClicked of PromiseStatus<AddCostCenterResult>
     | DelCostCenterClicked of CostCenterId * PromiseStatus<DelCostCenterResult>
+    // Task
+    | NewTaskNameChanged of string
+    | NewTaskCostCenterChanged of CostCenterId
+    | AddTaskClicked of PromiseStatus<AddTaskResult>
+    | DelTaskClicked of TaskId * PromiseStatus<DelTaskResult>
 
 let (|UserAdded|_|) = function
     | AddUserClicked (Completed (Ok user)) -> Some user
@@ -79,8 +95,12 @@ let (|TeamAdded|_|) = function
     | _ -> None
 
 let (|CostCenterAdded|_|) = function
-| AddCostCenterClicked (Completed (Ok costCenter)) -> Some costCenter
-| _ -> None
+    | AddCostCenterClicked (Completed (Ok costCenter)) -> Some costCenter
+    | _ -> None
+
+let (|TaskAdded|_|) = function
+    | AddTaskClicked (Completed (Ok task)) -> Some task
+    | _ -> None
 
 let dummyUsers =
     let create id login name =
@@ -100,6 +120,15 @@ let dummyCostCenters =
           Name = name }
     [ create 1 "Business"
       create 2 "IT"
+    ]
+
+let dummyTasks =
+    let create id name costCenterId =
+        { Task.Id = TaskId id
+          Name = name
+          CostCenterId = CostCenterId costCenterId }
+    [ create 1 "Business Projects" 1
+      create 2 "IT Projects" 2
     ]
 
 let addUser (username: string) = promise {
@@ -162,6 +191,26 @@ let delCostCenter (id: CostCenterId) = promise {
     return res.Ok |> (Ok >> Completed)
 }
 
+let addTask (name: string) (costCenterId: CostCenterId) = promise {
+    let body = Encode.Auto.toString(0, (name, costCenterId))
+    let props = [
+        Method HttpMethod.POST
+        Fetch.requestHeaders [ ContentType "application/json" ]
+        Body !^body
+    ]
+    let! res = Fetch.fetch Route.task props
+    let! txt = res.text()
+    return Decode.Auto.unsafeFromString<Task> txt |> (Ok >> Completed)
+}
+
+let delTask (id: TaskId) = promise {
+    let props = [
+        Method HttpMethod.DELETE
+    ]
+    let! res = Fetch.fetch (TaskId.route id) props
+    return res.Ok |> (Ok >> Completed)
+}
+
 let init (user: LoggedUser) =
     { User = user
       Tab = Tab.Users
@@ -181,6 +230,12 @@ let init (user: LoggedUser) =
       CostCenters = dummyCostCenters
       TryAddCostCenter = NotStarted
       TryDelCostCenter = NotStarted
+      // Task
+      NewTaskName = ""
+      NewTaskCostCenterId = (List.head dummyCostCenters).Id
+      Tasks = dummyTasks
+      TryAddTask = NotStarted
+      TryDelTask = NotStarted
     }, Cmd.none
 
 let update (msg: Msg) (state: State) : State * Cmd<Msg> =
@@ -291,6 +346,44 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         | Ok deleted ->
             if deleted then
                 { nextState with CostCenters = nextState.CostCenters |> List.where (fun costCenter -> costCenter.Id <> id) }, Cmd.none
+            else
+                nextState, Cmd.none
+        | _ ->
+            nextState, Cmd.none
+
+    | NewTaskNameChanged task ->
+        { state with NewTaskName = task }, Cmd.none
+
+    | NewTaskCostCenterChanged id ->
+        { state with NewTaskCostCenterId = id }, Cmd.none
+
+    | AddTaskClicked Pending ->
+        let nextState = { state with TryAddTask = InProgress }
+        let OnFailed (e: exn) = Error e.Message |> (Completed >> AddTaskClicked)
+        let nextCmd = Cmd.OfPromise.either (uncurry addTask) (state.NewTaskName, state.NewTaskCostCenterId) AddTaskClicked OnFailed
+        nextState, nextCmd
+
+    | AddTaskClicked (Completed addResult) ->
+        let nextState = { state with TryAddTask = Resolved addResult }
+        match addResult with
+        | Ok task ->
+            { nextState with Tasks = task :: nextState.Tasks; NewTaskName = "" }, Cmd.none
+        | _ ->
+            nextState, Cmd.none
+
+    | DelTaskClicked (id, Pending) ->
+        let toMsg x = DelTaskClicked (id, x)
+        let nextState = { state with TryDelTask = InProgress }
+        let OnFailed (e: exn) = Error e.Message |> Completed |> toMsg
+        let nextCmd = Cmd.OfPromise.either delTask id toMsg OnFailed
+        nextState, nextCmd
+
+    | DelTaskClicked (id, Completed delResult) ->
+        let nextState = { state with TryDelTask = Resolved delResult }
+        match delResult with
+        | Ok deleted ->
+            if deleted then
+                { nextState with Tasks = nextState.Tasks |> List.where (fun task -> task.Id <> id) }, Cmd.none
             else
                 nextState, Cmd.none
         | _ ->
@@ -641,6 +734,129 @@ let renderCostCenters (state: State) (dispatch: Msg -> unit) =
         )
     ]
 
+let renderTask (state: State) (dispatch: Msg -> unit) (task: Task) =
+    Bulma.columns [
+        columns.isVCentered
+        prop.children [
+            Bulma.column [
+                Bulma.subtitle.p task.Name
+            ]
+            Bulma.column [
+                column.isNarrow
+                prop.children [
+                    Bulma.buttons [
+                        Bulma.button.button [
+                            color.isDanger
+                            prop.onClick (fun _ -> (task.Id, Pending) |> DelTaskClicked |> dispatch)
+                            prop.children [
+                                Fa.i [ Fa.Solid.Times ] []
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]
+
+let renderAddTask (state: State) (dispatch: Msg -> unit) =
+    let error =
+        if String.IsNullOrWhiteSpace state.NewTaskName
+        then Some ""
+        elif state.Tasks |> List.exists (fun task -> task.Name = state.NewTaskName.Trim())
+        then Some "Task already exists."
+        else None
+    Html.div [
+        prop.style [
+            style.paddingBottom 30
+        ]
+        prop.children [
+            Bulma.field.div [
+                prop.children [
+                    Bulma.control.div [
+                        control.hasIconsLeft
+                        if Option.isSome error then control.hasIconsRight
+                        prop.children [
+                            Bulma.input.text [
+                                prop.placeholder "Task"
+                                prop.valueOrDefault state.NewTaskName
+                                prop.onChange (NewTaskNameChanged >> dispatch)
+                            ]
+                            Bulma.icon [
+                                icon.isSmall; icon.isLeft
+                                prop.children [
+                                    Fa.i [ Fa.Solid.Tasks ] []
+                                ]
+                            ]
+                            if Option.isSome error then
+                                Bulma.icon [
+                                    icon.isSmall; icon.isRight
+                                    prop.children [
+                                        Fa.i [ Fa.Solid.ExclamationTriangle ] []
+                                    ]
+                                ]
+                        ]
+                    ]
+                ]
+            ]
+            Bulma.field.div [
+                Bulma.label "Cost Center"
+                Bulma.control.div [
+                    control.hasIconsLeft
+                    prop.children [
+                        Bulma.select (
+                            state.CostCenters
+                            |> List.map (fun cc ->
+                                Html.option [
+                                    prop.onClick (fun _ -> NewTaskCostCenterChanged cc.Id |> dispatch)
+                                    prop.text cc.Name
+                                ]
+                            )
+                        )
+                        Bulma.icon [
+                            icon.isSmall; icon.isLeft
+                            prop.children [
+                                Fa.i [ Fa.Solid.EuroSign ] []
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            Bulma.field.div [
+                Bulma.button.button [
+                    color.isInfo
+                    prop.disabled (Option.isSome error)
+                    if state.TryAddTask = InProgress then button.isLoading
+                    prop.onClick (fun _ -> dispatch (AddTaskClicked Pending))
+                    prop.text "Add Task"
+                ]
+            ]
+            match error with
+            | Some msg ->
+                if not (String.IsNullOrEmpty msg) then
+                    Bulma.help [
+                        color.isDanger
+                        prop.text msg
+                    ]
+            | None -> Html.none
+        ]
+    ]
+
+let renderTasks (state: State) (dispatch: Msg -> unit) =
+    Html.div [
+        match state.TryAddTask with
+        | Resolved (Error m) ->
+            Bulma.message [
+                color.isDanger
+                prop.children [
+                    Bulma.messageBody (sprintf "Error adding new task: %s" m)
+                ]
+            ]
+        | _ -> Html.none
+        Bulma.box (
+            state.Tasks |> List.map (renderTask state dispatch)
+        )
+    ]
+
 let render state dispatch =
     centered [
         Html.h1 [
@@ -672,38 +888,23 @@ let render state dispatch =
         ]
 
         Bulma.tabs [
-            Html.ul [
-                Html.li [
-                    if state.Tab = Tab.Users then tab.isActive
-                    prop.children [
-                        Html.a [
-                            if state.Tab <> Tab.Users
-                            then prop.onClick (fun _ -> TabChanged Tab.Users |> dispatch)
-                            prop.text "Users"
+            Html.ul (
+                [ Tab.Users, "Users"
+                  Tab.Teams, "Teams"
+                  Tab.CostCenters, "Cost Centers"
+                  Tab.Tasks, "Tasks"
+                ] |> List.map (fun (t, label) ->
+                    Html.li [
+                        if state.Tab = t then tab.isActive
+                        prop.children [
+                            Html.a [
+                                if state.Tab <> t
+                                then prop.onClick (fun _ -> TabChanged t |> dispatch)
+                                prop.text label
+                            ]
                         ]
-                    ]
-                ]
-                Html.li [
-                    if state.Tab = Tab.Teams then tab.isActive
-                    prop.children [
-                        Html.a [
-                            if state.Tab <> Tab.Teams
-                            then prop.onClick (fun _ -> TabChanged Tab.Teams |> dispatch)
-                            prop.text "Teams"
-                        ]
-                    ]
-                ]
-                Html.li [
-                    if state.Tab = Tab.CostCenters then tab.isActive
-                    prop.children [
-                        Html.a [
-                            if state.Tab <> Tab.CostCenters
-                            then prop.onClick (fun _ -> TabChanged Tab.CostCenters |> dispatch)
-                            prop.text "Cost Centers"
-                        ]
-                    ]
-                ]
-            ]
+                    ])
+            )
         ]
 
         Html.div [
@@ -721,6 +922,9 @@ let render state dispatch =
                 if state.Tab = Tab.CostCenters then
                     renderAddCostCenter state dispatch
                     renderCostCenters state dispatch
+                if state.Tab = Tab.Tasks then
+                    renderAddTask state dispatch
+                    renderTasks state dispatch
             ]
         ]
     ]

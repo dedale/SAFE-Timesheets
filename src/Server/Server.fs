@@ -21,6 +21,9 @@ let webApp =
         post Route.costCenterSpinal Handlers.CostCenter.addCostCenter
         deletef "/api/cost_center/%i" Handlers.CostCenter.delCostCenter
         deletef "/api/cost-center/%i" Handlers.CostCenter.delCostCenter
+
+        post Route.task Handlers.Task.addTask
+        deletef "/api/task/%i" Handlers.Task.delTask
     }
 
 let app =
