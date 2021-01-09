@@ -50,7 +50,8 @@ type User = {
 type LoggedUser =
     { Username : UserLogin
       Token : JWT
-      IsAdmin : bool }
+      IsAdmin : bool
+      IsManager : bool }
 
 type TeamId = TeamId of int
 

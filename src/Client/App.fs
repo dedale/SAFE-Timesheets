@@ -12,6 +12,7 @@ type Page =
     | Login of Pages.Login.State
     | Admin of Pages.Admin.State
     | Home of Pages.Home.State
+    | Team of Pages.Team.State
     | NotFound
 
 [<RequireQualifiedAccessAttribute>]
@@ -20,12 +21,14 @@ type Url =
     | NotFound
     | Login
     | Admin
+    | Team
     | Logout
 
 let parseUrl = function
     | [  ] -> Url.Home
     | [ "login" ] -> Url.Login
     | [ "admin" ] -> Url.Admin
+    | [ "team" ] -> Url.Team
     | [ "logout" ] -> Url.Logout
     | _ -> Url.NotFound
 
@@ -38,6 +41,7 @@ type Msg =
     | HomeMsg of Pages.Home.Msg
     | LoginMsg of Pages.Login.Msg
     | AdminMsg of Pages.Admin.Msg
+    | TeamMsg of Pages.Team.Msg
     | UrlChanged of Url
 
 let init() =
@@ -61,6 +65,9 @@ let init() =
     | Url.Admin ->
         defaultState, Router.navigate("admin", HistoryMode.ReplaceState)
 
+    | Url.Team ->
+        defaultState, Router.navigate("team", HistoryMode.ReplaceState)
+
     | Url.Logout ->
         defaultState, Router.navigate("/", HistoryMode.ReplaceState)
 
@@ -83,6 +90,10 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         let adminState, adminCmd = Pages.Admin.update adminMsg adminState
         { state with CurrentPage = Page.Admin adminState }, Cmd.map AdminMsg adminCmd
 
+    | TeamMsg teamMsg, Page.Team teamState ->
+        let teamState, teamCmd = Pages.Team.update teamMsg teamState
+        { state with CurrentPage = Page.Team teamState }, Cmd.map TeamMsg teamCmd
+
     | UrlChanged nextUrl, _ ->
         let show page = { state with CurrentPage = page; CurrentUrl = nextUrl }
 
@@ -104,6 +115,16 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
                 let adminState, adminCmd = Pages.Admin.init user
                 show (Page.Admin adminState), Cmd.map AdminMsg adminCmd
 
+        | Url.Team ->
+            match state.User with
+            | Anonymous -> state, Router.navigate("login", HistoryMode.ReplaceState)
+            | LoggedIn user ->
+                if user.IsManager then
+                    let teamState, teamCmd = Pages.Team.init user
+                    show (Page.Team teamState), Cmd.map TeamMsg teamCmd
+                else
+                    state, Router.navigate("login", HistoryMode.ReplaceState)
+
         | Url.Logout ->
             { state with User = Anonymous }, Router.navigate("/")
 
@@ -116,6 +137,7 @@ let render (state: State) (dispatch: Msg -> unit) =
         | Page.Login login -> Pages.Login.render login (LoginMsg >> dispatch)
         | Page.Admin admin -> Pages.Admin.render admin (AdminMsg >> dispatch)
         | Page.Home home -> Pages.Home.render home (HomeMsg >> dispatch)
+        | Page.Team team -> Pages.Team.render team (TeamMsg >> dispatch)
         | Page.NotFound -> Html.h1 "Not Found"
 
     Router.router [

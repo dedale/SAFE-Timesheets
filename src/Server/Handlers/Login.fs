@@ -46,11 +46,13 @@ open Saturn.ControllerHelpers
 
 let validate (credentials: Shared.UserCredentials) =
     // TODO check that user exist in repository
+    // TODO ask db for managers
     match UserLogin.create credentials.Username with
     | Ok login ->
         { Username = login
           Token = JsonWebToken.generateToken credentials.Username
           IsAdmin = credentials.Username = "admin"
+          IsManager = credentials.Username.StartsWith("manager")
         } |> Ok
     | Error m -> Error m
 

@@ -463,6 +463,13 @@ let render state dispatch =
                 prop.href (Router.format(""))
                 prop.text "Home"
             ]
+            if state.User.IsManager then
+                Bulma.button.a [
+                    color.isInfo
+                    prop.style [ style.margin 5 ]
+                    prop.href (Router.format("team"))
+                    prop.text "Team"
+                ]
             Bulma.button.a [
                 color.isInfo
                 prop.style [ style.margin 5 ]
