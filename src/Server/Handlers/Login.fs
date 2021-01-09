@@ -55,6 +55,7 @@ let login (next : HttpFunc) (ctx : HttpContext) = task {
         if areValid credentials then
             { Username = credentials.Username
               Token = JsonWebToken.generateToken credentials.Username
+              IsAdmin = credentials.Username = "admin"
             }
             |> ctx.WriteJsonAsync
         else

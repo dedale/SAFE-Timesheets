@@ -19,4 +19,5 @@ type JWT = string
 
 type LoggedUser =
     { Username : string
-      Token : JWT }
+      Token : JWT
+      IsAdmin : bool }

@@ -4,6 +4,7 @@ open Client.Domain
 
 open Elmish
 open Feliz
+open Feliz.Bulma
 open Feliz.Router
 
 type State =
@@ -19,8 +20,8 @@ let render (state: State) (dispatch: Msg -> unit) =
     | Anonymous ->
         Html.div [
             Html.h1 "Welcome, guest"
-            Html.a [
-                prop.className [ "button"; "is-info" ]
+            Bulma.button.a [
+                color.isInfo
                 prop.style [ style.margin 5 ]
                 prop.href (Router.format("login"))
                 prop.text "Login"
@@ -30,14 +31,15 @@ let render (state: State) (dispatch: Msg -> unit) =
     | LoggedIn user ->
         Html.div [
             Html.h1 (sprintf "Welcome, %s" user.Username)
-            Html.a [
-                prop.className [ "button"; "is-info" ]
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("admin"))
-                prop.text "Admin"
-            ]
-            Html.a [
-                prop.className [ "button"; "is-info" ]
+            if user.IsAdmin then
+                Bulma.button.a [
+                    color.isInfo
+                    prop.style [ style.margin 5 ]
+                    prop.href (Router.format("admin"))
+                    prop.text "Admin"
+                ]
+            Bulma.button.a [
+                color.isInfo
                 prop.style [ style.margin 5 ]
                 prop.href (Router.format("logout"))
                 prop.text "Logout"
