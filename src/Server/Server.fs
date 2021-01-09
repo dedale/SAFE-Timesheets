@@ -10,8 +10,10 @@ let webApp =
         post Route.login Handlers.Login.login
 
         post Route.user Handlers.User.addUser
-
         deletef "/api/user/%i" Handlers.User.delUser
+
+        post Route.team Handlers.Team.addTeam
+        deletef "/api/team/%i" Handlers.Team.delTeam
     }
 
 let app =

@@ -3,6 +3,7 @@ module Shared
 module Route =
     let login = "/api/login"
     let user = "/api/user"
+    let team = "/api/team"
 
 open System
 
@@ -50,3 +51,14 @@ type LoggedUser =
     { Username : UserLogin
       Token : JWT
       IsAdmin : bool }
+
+type TeamId = TeamId of int
+
+module TeamId =
+    let value (TeamId id) = id
+    let route (TeamId id) = sprintf "/api/team/%i" id
+
+type Team = {
+    Id: TeamId
+    Name: string
+}

@@ -10,3 +10,5 @@ type Deferred<'t> =
 type PromiseStatus<'t> =
     | Pending
     | Completed of 't
+
+let uncurry f (a, b) = f a b
