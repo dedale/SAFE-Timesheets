@@ -4,6 +4,9 @@ module Route =
     let login = "/api/login"
     let user = "/api/user"
     let team = "/api/team"
+    let costCenterCamel = "/api/cost_center"
+    let costCenterSpinal = "/api/cost-center"
+    let costCenter = costCenterCamel
 
 open System
 
@@ -61,5 +64,21 @@ module TeamId =
 
 type Team = {
     Id: TeamId
+    Name: string
+}
+
+type CostCenterId = CostCenterId of int
+
+module CostCenterId =
+    let value (CostCenterId id) = id
+
+    // https://blog.restcase.com/5-basic-rest-api-design-guidelines/
+    // https://blog.octo.com/en/design-a-rest-api/#case_uri
+    let routeCamel (CostCenterId id) = sprintf "/api/cost_center/%i" id
+    let routeSpinal (CostCenterId id) = sprintf "/api/cost-center/%i" id
+    let route = routeCamel
+
+type CostCenter = {
+    Id: CostCenterId
     Name: string
 }

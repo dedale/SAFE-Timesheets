@@ -18,40 +18,57 @@ open Thoth.Json.Net
 open System
 
 type AddUserResult = Result<User, string>
-
 type DelUserResult = Result<bool, string>
 
 type AddTeamResult = Result<Team, string>
-
+// TODO Edit
 type DelTeamResult = Result<bool, string>
+
+type AddCostCenterResult = Result<CostCenter, string>
+// TODO Edit
+type DelCostCenterResult = Result<bool, string>
 
 type Tab =
     | Users
     | Teams
+    | CostCenters
 
 type State =
     { User : LoggedUser
       Tab : Tab
+      
       NewUsername : string
       Users : User list
       TryAddUser : Deferred<AddUserResult>
       TryDelUser : Deferred<DelUserResult>
+      
       NewTeamName : string
       NewTeamManagerId : UserId
       Teams : Team list
       TryAddTeam : Deferred<AddTeamResult>
       TryDelTeam : Deferred<DelTeamResult>
+      
+      NewCostCenterName : string
+      CostCenters : CostCenter list
+      TryAddCostCenter : Deferred<AddCostCenterResult>
+      TryDelCostCenter : Deferred<DelCostCenterResult>
     }
 
 type Msg =
     | TabChanged of Tab
+    // User
     | NewUsernameChanged of string
     | AddUserClicked of PromiseStatus<AddUserResult>
     | DelUserClicked of UserId * PromiseStatus<DelUserResult>
+    // Team
     | NewTeamNameChanged of string
     | NewTeamManagerChanged of UserId
     | AddTeamClicked of PromiseStatus<AddTeamResult>
     | DelTeamClicked of TeamId * PromiseStatus<DelTeamResult>
+    // CostCenter
+    | NewCostCenterChanged of string
+    | AddCostCenterClicked of PromiseStatus<AddCostCenterResult>
+    | DelCostCenterClicked of CostCenterId * PromiseStatus<DelCostCenterResult>
 
 let (|UserAdded|_|) = function
     | AddUserClicked (Completed (Ok user)) -> Some user
@@ -60,6 +77,10 @@ let (|UserAdded|_|) = function
 let (|TeamAdded|_|) = function
     | AddTeamClicked (Completed (Ok team)) -> Some team
     | _ -> None
+
+let (|CostCenterAdded|_|) = function
+| AddCostCenterClicked (Completed (Ok costCenter)) -> Some costCenter
+| _ -> None
 
 let dummyUsers =
     let create id login name =
@@ -71,6 +92,14 @@ let dummyUsers =
         | Error m -> failwith m
     [ create 1 "jdoe123" "John DOE"
       create 2 "vphilipp123456" "Vianney PHILIPPE"
+    ]
+
+let dummyCostCenters =
+    let create id name =
+        { CostCenter.Id = CostCenterId id
+          Name = name }
+    [ create 1 "Business"
+      create 2 "IT"
     ]
 
 let addUser (username: string) = promise {
@@ -113,18 +142,45 @@ let delTeam (id: TeamId) = promise {
     return res.Ok |> (Ok >> Completed)
 }
 
+let addCostCenter (name: string) = promise {
+    let body = Encode.Auto.toString(0, name)
+    let props = [
+        Method HttpMethod.POST
+        Fetch.requestHeaders [ ContentType "application/json" ]
+        Body !^body
+    ]
+    let! res = Fetch.fetch Route.costCenter props
+    let! txt = res.text()
+    return Decode.Auto.unsafeFromString<CostCenter> txt |> (Ok >> Completed)
+}
+
+let delCostCenter (id: CostCenterId) = promise {
+    let props = [
+        Method HttpMethod.DELETE
+    ]
+    let! res = Fetch.fetch (CostCenterId.route id) props
+    return res.Ok |> (Ok >> Completed)
+}
+
 let init (user: LoggedUser) =
     { User = user
       Tab = Tab.Users
+      // User
       NewUsername = ""
       Users = dummyUsers
       TryAddUser = NotStarted
       TryDelUser = NotStarted
+      // Team
       NewTeamName = ""
       NewTeamManagerId = (List.head dummyUsers).Id
       Teams = [ { Id = TeamId 1; Name = "Cloud Ops" } ]
       TryAddTeam = NotStarted
       TryDelTeam = NotStarted
+      // CostCenter
+      NewCostCenterName = ""
+      CostCenters = dummyCostCenters
+      TryAddCostCenter = NotStarted
+      TryDelCostCenter = NotStarted
     }, Cmd.none
 
 let update (msg: Msg) (state: State) : State * Cmd<Msg> =
@@ -200,6 +256,41 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         | Ok deleted ->
             if deleted then
                 { nextState with Teams = nextState.Teams |> List.where (fun team -> team.Id <> id) }, Cmd.none
+            else
+                nextState, Cmd.none
+        | _ ->
+            nextState, Cmd.none
+
+    | NewCostCenterChanged name ->
+        { state with NewCostCenterName = name }, Cmd.none
+
+    | AddCostCenterClicked Pending ->
+        let nextState = { state with TryAddCostCenter = InProgress }
+        let OnFailed (e: exn) = Error e.Message |> (Completed >> AddCostCenterClicked)
+        let nextCmd = Cmd.OfPromise.either addCostCenter state.NewCostCenterName AddCostCenterClicked OnFailed
+        nextState, nextCmd
+
+    | AddCostCenterClicked (Completed addResult) ->
+        let nextState = { state with TryAddCostCenter = Resolved addResult }
+        match addResult with
+        | Ok costCenter ->
+            { nextState with CostCenters = costCenter :: nextState.CostCenters; NewCostCenterName = "" }, Cmd.none
+        | _ ->
+            nextState, Cmd.none
+
+    | DelCostCenterClicked (id, Pending) ->
+        let toMsg x = DelCostCenterClicked (id, x)
+        let nextState = { state with TryDelCostCenter = InProgress }
+        let OnFailed (e: exn) = Error e.Message |> Completed |> toMsg
+        let nextCmd = Cmd.OfPromise.either delCostCenter id toMsg OnFailed
+        nextState, nextCmd
+
+    | DelCostCenterClicked (id, Completed delResult) ->
+        let nextState = { state with TryDelCostCenter = Resolved delResult }
+        match delResult with
+        | Ok deleted ->
+            if deleted then
+                { nextState with CostCenters = nextState.CostCenters |> List.where (fun costCenter -> costCenter.Id <> id) }, Cmd.none
             else
                 nextState, Cmd.none
         | _ ->
@@ -448,6 +539,108 @@ let renderTeams (state: State) (dispatch: Msg -> unit) =
         )
     ]
 
+let renderCostCenter (state: State) (dispatch: Msg -> unit) (costCenter: CostCenter) =
+    Bulma.columns [
+        columns.isVCentered
+        prop.children [
+            Bulma.column [
+                Bulma.subtitle.p costCenter.Name
+            ]
+            Bulma.column [
+                column.isNarrow
+                prop.children [
+                    Bulma.buttons [
+                        Bulma.button.button [
+                            color.isDanger
+                            prop.onClick (fun _ -> (costCenter.Id, Pending) |> DelCostCenterClicked |> dispatch)
+                            prop.children [
+                                Fa.i [ Fa.Solid.Times ] []
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]
+
+let renderAddCostCenter (state: State) (dispatch: Msg -> unit) =
+    let error =
+        if String.IsNullOrWhiteSpace state.NewCostCenterName
+        then Some ""
+        elif state.CostCenters |> List.exists (fun cc -> cc.Name = state.NewCostCenterName.Trim())
+        then Some "Cost center already exists."
+        else None
+    Html.div [
+        prop.style [
+            style.paddingBottom 30
+        ]
+        prop.children [
+            Bulma.field.div [
+                field.hasAddons
+                prop.children [
+                    Bulma.control.div [
+                        control.hasIconsLeft
+                        if Option.isSome error then control.hasIconsRight
+                        prop.children [
+                            Bulma.input.text [
+                                prop.placeholder "Cost center"
+                                prop.valueOrDefault state.NewCostCenterName
+                                prop.onChange (NewCostCenterChanged >> dispatch)
+                            ]
+                            Bulma.icon [
+                                icon.isSmall; icon.isLeft
+                                prop.children [
+                                    Fa.i [ Fa.Solid.EuroSign ] []
+                                ]
+                            ]
+                            if Option.isSome error then
+                                Bulma.icon [
+                                    icon.isSmall; icon.isRight
+                                    prop.children [
+                                        Fa.i [ Fa.Solid.ExclamationTriangle ] []
+                                    ]
+                                ]
+                        ]
+                    ]
+                    Bulma.control.div [
+                        Bulma.button.button [
+                            color.isPrimary
+                            prop.disabled (Option.isSome error)
+                            prop.onClick (fun _ -> dispatch (AddCostCenterClicked Pending))
+                            prop.children [
+                                Fa.i [ Fa.Solid.Plus ] []
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+            match error with
+            | Some msg ->
+                if not (String.IsNullOrEmpty msg) then
+                    Bulma.help [
+                        color.isDanger
+                        prop.text msg
+                    ]
+            | None -> Html.none
+        ]
+    ]
+
+let renderCostCenters (state: State) (dispatch: Msg -> unit) =
+    Html.div [
+        match state.TryAddCostCenter with
+        | Resolved (Error m) ->
+            Bulma.message [
+                color.isDanger
+                prop.children [
+                    Bulma.messageBody (sprintf "Error adding new cost center: %s" m)
+                ]
+            ]
+        | _ -> Html.none
+        Bulma.box (
+            state.CostCenters |> List.map (renderCostCenter state dispatch)
+        )
+    ]
+
 let render state dispatch =
     centered [
         Html.h1 [
@@ -500,6 +693,16 @@ let render state dispatch =
                         ]
                     ]
                 ]
+                Html.li [
+                    if state.Tab = Tab.CostCenters then tab.isActive
+                    prop.children [
+                        Html.a [
+                            if state.Tab <> Tab.CostCenters
+                            then prop.onClick (fun _ -> TabChanged Tab.CostCenters |> dispatch)
+                            prop.text "Cost Centers"
+                        ]
+                    ]
+                ]
             ]
         ]
 
@@ -515,6 +718,9 @@ let render state dispatch =
                 if state.Tab = Tab.Teams then
                     renderAddTeam state dispatch
                     renderTeams state dispatch
+                if state.Tab = Tab.CostCenters then
+                    renderAddCostCenter state dispatch
+                    renderCostCenters state dispatch
             ]
         ]
     ]

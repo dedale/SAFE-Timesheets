@@ -14,6 +14,13 @@ let webApp =
 
         post Route.team Handlers.Team.addTeam
         deletef "/api/team/%i" Handlers.Team.delTeam
+
+        // https://blog.restcase.com/5-basic-rest-api-design-guidelines/
+        // https://blog.octo.com/en/design-a-rest-api/#case_uri
+        post Route.costCenterCamel Handlers.CostCenter.addCostCenter
+        post Route.costCenterSpinal Handlers.CostCenter.addCostCenter
+        deletef "/api/cost_center/%i" Handlers.CostCenter.delCostCenter
+        deletef "/api/cost-center/%i" Handlers.CostCenter.delCostCenter
     }
 
 let app =
