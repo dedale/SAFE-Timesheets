@@ -44,20 +44,23 @@ open Giraffe
 open Microsoft.AspNetCore.Http
 open Saturn.ControllerHelpers
 
-let areValid (credentials: Shared.UserCredentials) =
-    // TODO
-    true
+let validate (credentials: Shared.UserCredentials) =
+    // TODO check that user exist in repository
+    match UserLogin.create credentials.Username with
+    | Ok login ->
+        { Username = login
+          Token = JsonWebToken.generateToken credentials.Username
+          IsAdmin = credentials.Username = "admin"
+        } |> Ok
+    | Error m -> Error m
 
 /// Authenticates a user and returns a token in the HTTP body.
 let login (next : HttpFunc) (ctx : HttpContext) = task {
     let! credentials = ctx.BindJsonAsync<Shared.UserCredentials>()
     return!
-        if areValid credentials then
-            { Username = credentials.Username
-              Token = JsonWebToken.generateToken credentials.Username
-              IsAdmin = credentials.Username = "admin"
-            }
-            |> ctx.WriteJsonAsync
-        else
-            Response.unauthorized ctx "Bearer" "" (sprintf "User '%s' can't be logged in." credentials.Username)
+        match validate credentials with
+        | Ok user ->
+            ctx.WriteJsonAsync user
+        | Error m ->
+            Response.unauthorized ctx "Bearer" "" (sprintf "User '%s' can't be logged in: %s." credentials.Username m)
 }

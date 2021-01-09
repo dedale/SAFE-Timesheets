@@ -30,7 +30,7 @@ let centered (children: ReactElement list) =
 let render (state: State) (dispatch: Msg -> unit) =
     centered [
         Html.h1 [
-            Html.strong (state.User.Username.ToUpper())
+            Html.strong ((UserLogin.value state.User.Username).ToUpper())
         ]
 
         Html.p "This is the admin page"

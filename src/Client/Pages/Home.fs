@@ -2,6 +2,8 @@
 
 open Client.Domain
 
+open Shared
+
 open Elmish
 open Feliz
 open Feliz.Bulma
@@ -30,7 +32,7 @@ let render (state: State) (dispatch: Msg -> unit) =
 
     | LoggedIn user ->
         Html.div [
-            Html.h1 (sprintf "Welcome, %s" user.Username)
+            Html.h1 (sprintf "Welcome, %s" (UserLogin.value user.Username))
             if user.IsAdmin then
                 Bulma.button.a [
                     color.isInfo
