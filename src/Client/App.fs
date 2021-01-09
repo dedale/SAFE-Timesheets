@@ -3,14 +3,14 @@ module App
 open Elmish
 open Feliz
 open Feliz.Router
-open Thoth.Fetch
+//open Thoth.Fetch
 
 open Shared
 
 [<RequireQualifiedAccess>]
 type Page =
     | Login of Pages.Login.State
-    //| Overview of Overview.State
+    | Admin of Pages.Admin.State
     | Index
     | NotFound
 
@@ -19,13 +19,13 @@ type Url =
     | Index
     | NotFound
     | Login
-    //| Overview
+    | Admin
     | Logout
 
 let parseUrl = function
     | [  ] -> Url.Index
     | [ "login" ] -> Url.Login
-    //| [ "overview" ] -> Url.Overview
+    | [ "admin" ] -> Url.Admin
     | [ "logout" ] -> Url.Logout
     | _ -> Url.NotFound
 
@@ -40,7 +40,7 @@ type State =
 
 type Msg =
     | LoginMsg of Pages.Login.Msg
-    //| OverviewMsg of Overview.Msg
+    | AdminMsg of Pages.Admin.Msg
     | UrlChanged of Url
 
 let init() =
@@ -59,8 +59,8 @@ let init() =
         let nextPage = Page.Login loginState
         { defaultState with CurrentPage = nextPage }, Cmd.map LoginMsg loginCmd
 
-    //| Url.Overview ->
-    //    defaultState, Router.navigate("login", HistoryMode.ReplaceState)
+    | Url.Admin ->
+        defaultState, Router.navigate("admin", HistoryMode.ReplaceState)
 
     | Url.Logout ->
         defaultState, Router.navigate("/", HistoryMode.ReplaceState)
@@ -82,9 +82,9 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
             let loginState, loginCmd = Pages.Login.update loginMsg loginState
             { state with CurrentPage = Page.Login loginState }, Cmd.map LoginMsg loginCmd
 
-    //| OverviewMsg overviewMsg, Page.Overview overviewState ->
-    //    let overviewState, overviewCmd = Overview.update overviewMsg overviewState
-    //    { state with CurrentPage = Page.Overview overviewState }, Cmd.map OverviewMsg overviewCmd
+    | AdminMsg adminMsg, Page.Admin adminState ->
+        let adminState, adminCmd = Pages.Admin.update adminMsg adminState
+        { state with CurrentPage = Page.Admin adminState }, Cmd.map AdminMsg adminCmd
 
     | UrlChanged nextUrl, _ ->
         let show page = { state with CurrentPage = page; CurrentUrl = nextUrl }
@@ -93,15 +93,15 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         | Url.Index -> show Page.Index, Cmd.none
         | Url.NotFound -> show Page.NotFound, Cmd.none
         | Url.Login ->
-            let login, loginCmd = Pages.Login.init()
-            show (Page.Login login), Cmd.map LoginMsg loginCmd
+            let loginState, loginCmd = Pages.Login.init()
+            show (Page.Login loginState), Cmd.map LoginMsg loginCmd
 
-        //| Url.Overview ->
-        //    match state.User with
-        //    | Anonymous -> state, Router.navigate("login", HistoryMode.ReplaceState)
-        //    | LoggedIn user ->
-        //        let overview, overviewCmd = Overview.init user
-        //        show (Page.Overview overview), Cmd.map OverviewMsg overviewCmd
+        | Url.Admin ->
+            match state.User with
+            | Anonymous -> state, Router.navigate("login", HistoryMode.ReplaceState)
+            | LoggedIn user ->
+                let adminState, adminCmd = Pages.Admin.init user
+                show (Page.Admin adminState), Cmd.map AdminMsg adminCmd
 
         | Url.Logout ->
             { state with User = Anonymous }, Router.navigate("/")
@@ -128,8 +128,8 @@ let index (state: State) (dispatch: Msg -> unit) =
             Html.a [
                 prop.className [ "button"; "is-info" ]
                 prop.style [ style.margin 5 ]
-                prop.href (Router.format("overview"))
-                prop.text "Overview"
+                prop.href (Router.format("admin"))
+                prop.text "Admin"
             ]
             Html.a [
                 prop.className [ "button"; "is-info" ]
@@ -143,7 +143,7 @@ let render (state: State) (dispatch: Msg -> unit) =
     let activePage =
         match state.CurrentPage with
         | Page.Login login -> Pages.Login.render login (LoginMsg >> dispatch)
-        //| Page.Overview overview -> Overview.render overview (OverviewMsg >> dispatch)
+        | Page.Admin admin -> Pages.Admin.render admin (AdminMsg >> dispatch)
         | Page.Index -> index state dispatch
         | Page.NotFound -> Html.h1 "Not Found"
 
