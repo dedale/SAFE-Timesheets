@@ -8,6 +8,10 @@ open Shared
 let webApp =
     router {
         post Route.login Handlers.Login.login
+
+        post Route.user Handlers.User.addUser
+
+        deletef "/api/user/%i" Handlers.User.delUser
     }
 
 let app =

@@ -2,6 +2,7 @@ module Shared
 
 module Route =
     let login = "/api/login"
+    let user = "/api/user"
 
 open System
 
@@ -29,10 +30,15 @@ module UserLogin =
 
     let value (Login login) = login
 
-type UserId = UserId of Int64
+// Not using int64. If needed:
+// https://thoth-org.github.io/Thoth.Json/
+// Decoding int64
+//let extra = Extra.empty |> Extra.withInt64
+type UserId = UserId of int
 
 module UserId =
     let value (UserId id) = id
+    let route (UserId id) = sprintf "/api/user/%i" id
 
 type User = {
     Id: UserId
