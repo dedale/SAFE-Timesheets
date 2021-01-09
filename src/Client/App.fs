@@ -3,35 +3,31 @@ module App
 open Elmish
 open Feliz
 open Feliz.Router
-//open Thoth.Fetch
 
 open Shared
+open Client.Domain
 
 [<RequireQualifiedAccess>]
 type Page =
     | Login of Pages.Login.State
     | Admin of Pages.Admin.State
-    | Index
+    | Home of Pages.Home.State
     | NotFound
 
 [<RequireQualifiedAccessAttribute>]
 type Url =
-    | Index
+    | Home
     | NotFound
     | Login
     | Admin
     | Logout
 
 let parseUrl = function
-    | [  ] -> Url.Index
+    | [  ] -> Url.Home
     | [ "login" ] -> Url.Login
     | [ "admin" ] -> Url.Admin
     | [ "logout" ] -> Url.Logout
     | _ -> Url.NotFound
-
-type ApplicationUser =
-    | Anonymous
-    | LoggedIn of LoggedUser
 
 type State =
     { CurrentPage : Page
@@ -39,6 +35,7 @@ type State =
       User : ApplicationUser }
 
 type Msg =
+    | HomeMsg of Pages.Home.Msg
     | LoginMsg of Pages.Login.Msg
     | AdminMsg of Pages.Admin.Msg
     | UrlChanged of Url
@@ -48,11 +45,13 @@ let init() =
     let defaultState =
         { User = Anonymous
           CurrentUrl = initialUrl
-          CurrentPage = Page.Index }
+          CurrentPage = Page.NotFound }
 
     match initialUrl with
-    | Url.Index ->
-        defaultState, Cmd.none
+    | Url.Home ->
+        let homeState, homeCmd = Pages.Home.init defaultState.User
+        let nextPage = Page.Home homeState
+        { defaultState with CurrentPage = nextPage }, Cmd.map HomeMsg homeCmd
 
     | Url.Login ->
         let loginState, loginCmd = Pages.Login.init()
@@ -70,8 +69,6 @@ let init() =
 
 let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     match msg, state.CurrentPage with
-    //| GotHello hello ->
-    //    { model with Hello = hello }, Cmd.none
     
     | LoginMsg loginMsg, Page.Login loginState ->
         match loginMsg with
@@ -90,8 +87,12 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         let show page = { state with CurrentPage = page; CurrentUrl = nextUrl }
 
         match nextUrl with
-        | Url.Index -> show Page.Index, Cmd.none
+        | Url.Home ->
+            let homeState, homeCmd = Pages.Home.init state.User
+            show (Page.Home homeState), Cmd.map HomeMsg homeCmd
+
         | Url.NotFound -> show Page.NotFound, Cmd.none
+
         | Url.Login ->
             let loginState, loginCmd = Pages.Login.init()
             show (Page.Login loginState), Cmd.map LoginMsg loginCmd
@@ -109,42 +110,12 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | _, _ ->
         state, Cmd.none
 
-let index (state: State) (dispatch: Msg -> unit) =
-    match state.User with
-    | Anonymous ->
-        Html.div [
-            Html.h1 "Welcome, guest"
-            Html.a [
-                prop.className [ "button"; "is-info" ]
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("login"))
-                prop.text "Login"
-            ]
-        ]
-
-    | LoggedIn user ->
-        Html.div [
-            Html.h1 (sprintf "Welcome, %s" user.Username)
-            Html.a [
-                prop.className [ "button"; "is-info" ]
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("admin"))
-                prop.text "Admin"
-            ]
-            Html.a [
-                prop.className [ "button"; "is-info" ]
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("logout"))
-                prop.text "Logout"
-            ]
-        ]
-
 let render (state: State) (dispatch: Msg -> unit) =
     let activePage =
         match state.CurrentPage with
         | Page.Login login -> Pages.Login.render login (LoginMsg >> dispatch)
         | Page.Admin admin -> Pages.Admin.render admin (AdminMsg >> dispatch)
-        | Page.Index -> index state dispatch
+        | Page.Home home -> Pages.Home.render home (HomeMsg >> dispatch)
         | Page.NotFound -> Html.h1 "Not Found"
 
     Router.router [
