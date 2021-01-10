@@ -29,38 +29,46 @@ type TempDb private (temp, connection, connectionF) =
     }
     member __.NewUser login name = async {
         let user = Queries.User connectionF
-        let! _ = user.New login name None None
+        let! id = user.New login name None None
         let! created = user.GetSingleByLogin login
         return
             match created with
-            | Some x -> x
-            | _ -> failwith (sprintf "user '%s' not created" login)
+            | Some x ->
+                Expect.equal id (Some x.Id) "User id mismatch"
+                x
+            | _ -> failwith (sprintf "User '%s' not created" login)
     }
     member __.NewTeam name = async {
         let team = Queries.Team connectionF
-        let! _ = team.New name
+        let! id = team.New name
         let! created = team.GetSingleByName name
         return
             match created with
-            | Some x -> x
-            | _ -> failwith (sprintf "team '%s' not created" name)
+            | Some x ->
+                Expect.equal id (Some x.Id) "Team id mismatch"
+                x
+            | _ -> failwith (sprintf "Team '%s' not created" name)
     }
     member __.NewCostCenter name = async {
         let costCenter = Queries.CostCenter connectionF
-        let! _ = costCenter.New name
+        let! id = costCenter.New name
         let! created = costCenter.GetSingleByName name
         return
             match created with
-            | Some x -> x
-            | _ -> failwith (sprintf "costCenter '%s' not created" name)
+            | Some x ->
+                Expect.equal id (Some x.Id) "CostCenter id mismatch"
+                x
+            | _ -> failwith (sprintf "CostCenter '%s' not created" name)
     }
     member __.NewTask name (costCenterId: CostCenterId) = async {
         let task = Queries.Task connectionF
-        let! _ = task.New name costCenterId
+        let! id = task.New name costCenterId
         let! created = task.GetSingleByName name
         return
             match created with
-            | Some x -> x
+            | Some x ->
+                Expect.equal id (Some x.Id) "Task id mismatch"
+                x
             | _ -> failwith (sprintf "task '%s' not created" name)
     }
 

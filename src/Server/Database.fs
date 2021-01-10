@@ -262,10 +262,14 @@ module Queries =
         let querySingleUserOptionAsync = querySingleOptionAsync<Shared.User> connectionF
         let querySeqUserAsync = querySeqAsync<Shared.User> connectionF
 
-        member __.New login name start finish = querySingleIntOptionAsync {
-            script "INSERT INTO User (Login, Name, Start, End) VALUES (@Login, @Name, @Start, @End)"
-            parameters (dict ["Login", box login; "Name", box name; "Start", boxCustom start; "End", boxCustom finish])
-        }
+        member __.New login name start finish =
+            querySingleIntOptionAsync {
+                script """
+                    INSERT INTO User (Login, Name, Start, End) VALUES (@Login, @Name, @Start, @End);
+                    SELECT last_insert_rowid();
+                """
+                parameters (dict ["Login", box login; "Name", box name; "Start", boxCustom start; "End", boxCustom finish])
+            } |> Async.map (Option.map UserId)
 
         member __.GetAll() = querySeqUserAsync {
             script "SELECT * FROM User"
@@ -282,10 +286,14 @@ module Queries =
         let querySingleTeamOptionAsync = querySingleOptionAsync<Shared.Team> connectionF
         let querySeqTeamAsync = querySeqAsync<Shared.Team> connectionF
 
-        member __.New name = querySingleIntOptionAsync {
-            script "INSERT INTO Team (Name) VALUES (@Name)"
-            parameters (dict ["Name", box name])
-        }
+        member __.New name =
+            querySingleIntOptionAsync {
+                script """
+                    INSERT INTO Team (Name) VALUES (@Name);
+                    SELECT last_insert_rowid();
+                """
+                parameters (dict ["Name", box name])
+            } |> Async.map (Option.map TeamId)
 
         member __.GetAll() = querySeqTeamAsync {
             script "SELECT * FROM Team"
@@ -330,10 +338,14 @@ module Queries =
         let querySingleCostCenterOptionAsync = querySingleOptionAsync<Shared.CostCenter> connectionF
         let querySeqCostCenterAsync = querySeqAsync<Shared.CostCenter> connectionF
 
-        member __.New name = querySingleIntOptionAsync {
-            script "INSERT INTO CostCenter (Name) VALUES (@Name)"
-            parameters (dict ["Name", box name])
-        }
+        member __.New name =
+            querySingleIntOptionAsync {
+                script """
+                    INSERT INTO CostCenter (Name) VALUES (@Name);
+                    SELECT last_insert_rowid();
+                """
+                parameters (dict ["Name", box name])
+            }  |> Async.map (Option.map CostCenterId)
 
         member __.GetAll() = querySeqCostCenterAsync {
             script "SELECT * FROM CostCenter"
@@ -350,10 +362,14 @@ module Queries =
         let querySingleTaskOptionAsync = querySingleOptionAsync<Shared.Task> connectionF
         let querySeqTaskAsync = querySeqAsync<Shared.Task> connectionF
 
-        member __.New name (costCenterId: CostCenterId) = querySingleIntOptionAsync {
-            script "INSERT INTO Task (Name, CostCenterID) VALUES (@Name, @CostCenterId)"
-            parameters (dict ["Name", box name; "CostCenterId", box costCenterId])
-        }
+        member __.New name (costCenterId: CostCenterId) =
+            querySingleIntOptionAsync {
+                script """
+                    INSERT INTO Task (Name, CostCenterID) VALUES (@Name, @CostCenterId);
+                    SELECT last_insert_rowid();
+                """
+                parameters (dict ["Name", box name; "CostCenterId", box costCenterId])
+            }  |> Async.map (Option.map TaskId)
 
         member __.GetAll() = querySeqTaskAsync {
             script "SELECT * FROM Task"
@@ -388,7 +404,8 @@ module Queries =
             querySingleIntOptionAsync {
                 script """
                     INSERT INTO Activity (Date, UserId, TaskId, Days, Comment, Year, Week)
-                    VALUES (@Date, @UserId, @TaskId, @Days, @Comment, @Year, @Week)
+                    VALUES (@Date, @UserId, @TaskId, @Days, @Comment, @Year, @Week);
+                    SELECT last_insert_rowid();
                 """
                 parameters (dict [
                     "Date", boxCustom date

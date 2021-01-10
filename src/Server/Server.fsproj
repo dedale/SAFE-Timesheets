@@ -5,7 +5,9 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AsyncExtensions.fs" />
     <Compile Include="FileSystem.fs" />
+    <Compile Include="AssemblyExtensions.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="Handlers\Login.fs" />
     <Compile Include="Handlers\User.fs" />
