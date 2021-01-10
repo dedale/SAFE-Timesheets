@@ -35,6 +35,9 @@ module UserLogin =
 
     let value (Login login) = login
 
+type UserLogin with
+    member x.Value = UserLogin.value x
+
 // Not using int64. If needed:
 // https://thoth-org.github.io/Thoth.Json/
 // Decoding int64
@@ -44,6 +47,9 @@ type UserId = UserId of int
 module UserId =
     let value (UserId id) = id
     let route (UserId id) = sprintf "/api/user/%i" id
+
+type UserId with
+    member x.Value = UserId.value x
 
 // Attribute needed to avoid InvalidOperationException: A parameterless default constructor
 // or one matching signature (System.Int64 Id, System.String Name, System.String Alias) is
@@ -67,6 +73,9 @@ module TeamId =
     let value (TeamId id) = id
     let route (TeamId id) = sprintf "/api/team/%i" id
 
+type TeamId with
+    member x.Value = TeamId.value x
+
 [<CLIMutable>]
 type Team = {
     Id: TeamId
@@ -84,6 +93,9 @@ module CostCenterId =
     let routeSpinal (CostCenterId id) = sprintf "/api/cost-center/%i" id
     let route = routeCamel
 
+type CostCenterId with
+    member x.Value = CostCenterId.value x
+
 [<CLIMutable>]
 type CostCenter = {
     Id: CostCenterId
@@ -95,6 +107,9 @@ type TaskId = TaskId of int
 module TaskId =
     let value (TaskId id) = id
     let route (TaskId id) = sprintf "/api/task/%i" id
+
+type TaskId with
+    member x.Value = TaskId.value x
 
 [<CLIMutable>]
 type Task = {
@@ -152,6 +167,9 @@ module MonthNumber =
 
     let value (MonthNumber month) = month
 
+type MonthNumber with
+    member x.Value = MonthNumber.value x
+
 type SafeDate = private SafeDate of DateTime
 
 module SafeDate =
@@ -169,6 +187,9 @@ module SafeDate =
 
     let min = SafeDate (DateTime(YearNumber.min, 1, 1))
 
+type SafeDate with
+    member x.Value = SafeDate.value x
+
 let rec private findMonday (date: DateTime) =
     if date.DayOfWeek = DayOfWeek.Monday
     then date
@@ -183,13 +204,13 @@ type Week = private {
 
 module Week =
     let start (date: SafeDate) =
-        let Monday = SafeDate.value date |> findMonday
+        let Monday = findMonday date.Value
         match SafeDate.create Monday with
         | Ok d -> d
         | _ -> failwith "Invalid date"
 
     let finish (date: SafeDate) =
-        let Friday = (start date |> SafeDate.value).AddDays 4.
+        let Friday = (start date).Value.AddDays 4.
         match SafeDate.create Friday with
         | Ok d -> d
         | _ -> failwith "Invalid date"
@@ -197,7 +218,7 @@ module Week =
     // https://fr.wikipedia.org/wiki/Num%C3%A9rotation_ISO_des_semaines
     // Using Jan 4 rule
     let ofDate (date: SafeDate) =
-        let value = SafeDate.value date
+        let value = date.Value
         let Monday1, year =
             let thisYear = DateTime(value.Year, 1, 4) |> findMonday
             // First days of year before first Monday when Monday <= Jan 4
@@ -259,10 +280,16 @@ module WorkDays =
 
     let value (WorkDays d) = d
 
+type WorkDays with
+    member x.Value = WorkDays.value x
+
 type ActivityId = ActivityId of int
 
 module ActivityId =
     let value (ActivityId id) = id
+
+type ActivityId with
+    member x.Value = ActivityId.value x
 
 // No CLIMutable attribute because DTO type is different
 type Activity = {

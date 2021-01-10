@@ -43,7 +43,7 @@ let validate (username: string) =
     // TODO add in DB
     match UserLogin.create (username.ToLowerInvariant()) with
     | Ok login ->
-        match UserLogin.value login with
+        match login.Value with
         | "manager1" ->
             { Id = UserId 3
               User.Name = "Mike ANAGER"

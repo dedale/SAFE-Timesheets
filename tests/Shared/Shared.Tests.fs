@@ -26,11 +26,10 @@ let date = testList "Date" [
         Expect.isOk result "Should create date"
 
     testCase "Min should be a Monday" <| fun _ ->
-        let min = SafeDate.min
-        Expect.equal ((SafeDate.value min).DayOfWeek) DayOfWeek.Monday "Minimum week should start on Monday"
+        Expect.equal SafeDate.min.Value.DayOfWeek DayOfWeek.Monday "Minimum week should start on Monday"
 
     testCase "Min prev year should fail" <| fun _ ->
-        let prev = (SafeDate.value SafeDate.min).Year - 1 |> YearNumber.create
+        let prev = SafeDate.min.Value.Year - 1 |> YearNumber.create
         Expect.isError prev "Year before minimum date should not be allowed"
 ]
 
@@ -66,7 +65,7 @@ let week = testList "Week" [
     ] |> List.map (fun (date, expected) ->
         test (date.ToString()) {
             let start = date |> SafeDate.create |> OkOrFail |> Week.start
-            Expect.equal (SafeDate.value start) expected (sprintf "Bad start of week for %A" date)
+            Expect.equal start.Value expected (sprintf "Bad start of week for %A" date)
         })
     )
 
@@ -80,7 +79,7 @@ let week = testList "Week" [
     ] |> List.map (fun (date, expected) ->
         test (date.ToString()) {
             let finish = date |> SafeDate.create |> OkOrFail |> Week.finish
-            Expect.equal (SafeDate.value finish) expected (sprintf "Bad end of week for %A" date)
+            Expect.equal finish.Value expected (sprintf "Bad end of week for %A" date)
         })
     )
 
@@ -139,7 +138,7 @@ let week = testList "Week" [
         testCase "2021.1" <| fun _ ->
             let actual =
                 match Week.create 1 2021 with
-                | Ok w -> let m, f = (Week.range w) in SafeDate.value m, SafeDate.value f
+                | Ok w -> let m, f = (Week.range w) in m.Value, f.Value
                 | Error m -> failtest m
             let expected = DateTime(2021, 1, 4), DateTime(2021, 1, 8)
             Expect.equal actual expected ""
@@ -147,7 +146,7 @@ let week = testList "Week" [
         testCase "2020.53" <| fun _ ->
             let actual =
                 match Week.create 53 2020 with
-                | Ok w -> let m, f = (Week.range w) in SafeDate.value m, SafeDate.value f
+                | Ok w -> let m, f = (Week.range w) in m.Value, f.Value
                 | Error m -> failtest m
             let expected = DateTime(2020, 12, 28), DateTime(2021, 1, 1)
             Expect.equal actual expected ""

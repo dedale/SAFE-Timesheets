@@ -88,7 +88,7 @@ let renderLoginOutcome (loginResult: Deferred<LoginResult>)=
     | Resolved (LoginResult.LoggedIn user) ->
         Bulma.help [
             color.isDanger
-            prop.text (sprintf "User '%s' has succesfully logged in" (UserLogin.value user.Username))
+            prop.text (sprintf "User '%s' has succesfully logged in" user.Username.Value)
         ]
 
     | _ ->

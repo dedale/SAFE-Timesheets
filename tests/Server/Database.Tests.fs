@@ -123,12 +123,12 @@ let teamMember = testList "TeamMember" [
         let teamMember = Queries.TeamMember db.ConnectionF
 
         Expect.throws (fun () ->
-            teamMember.New (UserId (UserId.value john.Id + 1)) team.Id
+            teamMember.New (UserId (john.Id.Value + 1)) team.Id
             |> Async.RunSynchronously
             |> ignore) "UserId foreign key missing in TeamMember"
 
         Expect.throws (fun () ->
-            teamMember.New john.Id (TeamId (TeamId.value team.Id + 1))
+            teamMember.New john.Id (TeamId (team.Id.Value + 1))
             |> Async.RunSynchronously
             |> ignore) "TeamId foreign key missing in TeamMember"
     }
@@ -159,12 +159,12 @@ let teamManager = testList "TeamManager" [
         let teamManager = Queries.TeamManager db.ConnectionF
 
         Expect.throws (fun () ->
-            teamManager.New (TeamId (TeamId.value team.Id + 1)) manager.Id
+            teamManager.New (TeamId (team.Id.Value + 1)) manager.Id
             |> Async.RunSynchronously
             |> ignore) "TeamId foreign key missing in TeamManager"
 
         Expect.throws (fun () ->
-            teamManager.New team.Id (UserId (UserId.value manager.Id + 1))
+            teamManager.New team.Id (UserId (manager.Id.Value + 1))
             |> Async.RunSynchronously
             |> ignore) "ManagerId foreign key missing in TeamManager"
     }
@@ -200,7 +200,7 @@ let task = testList "Task" [
         let task = Queries.Task db.ConnectionF
 
         Expect.throws (fun () ->
-            task.New "Task name" (CostCenterId (CostCenterId.value costCenter.Id + 1))
+            task.New "Task name" (CostCenterId (costCenter.Id.Value + 1))
             |> Async.RunSynchronously
             |> ignore) "CostCenterId foreign key missing in Task"
     }
@@ -233,12 +233,12 @@ let teamTask = testList "TeamTask" [
         let teamTask = Queries.TeamTask db.ConnectionF
 
         Expect.throws (fun () ->
-            teamTask.New (TeamId (TeamId.value team.Id + 1)) task.Id
+            teamTask.New (TeamId (team.Id.Value + 1)) task.Id
             |> Async.RunSynchronously
             |> ignore) "TeamId foreign key missing in TeamTask"
 
         Expect.throws (fun () ->
-            teamTask.New team.Id (TaskId (TaskId.value task.Id + 1))
+            teamTask.New team.Id (TaskId (task.Id.Value + 1))
             |> Async.RunSynchronously
             |> ignore) "TaskId foreign key missing in TeamTask"
     }
@@ -289,7 +289,7 @@ let activity = testList "Activity" [
             | Ok w -> w
             | Error m -> failtest m
         let! activities = activity.Get user.Id week
-        let sorted = Array.ofSeq activities |> Array.sortBy (fun a -> SafeDate.value a.Date)
+        let sorted = Array.ofSeq activities |> Array.sortBy (fun a -> a.Date.Value)
         Expect.hasCountOf sorted 2u (fun _ -> true) "Should take only select week & user"
         Expect.equal (sorted.[0].Comment) (Some "Monday") ""
         Expect.equal (sorted.[1].Comment) (Some "Friday") ""

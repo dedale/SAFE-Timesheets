@@ -414,7 +414,7 @@ let renderUser (state: State) (dispatch: Msg -> unit) (user: User) =
             Bulma.column [
                 column.isOneThird
                 prop.children [
-                    Bulma.subtitle.p (UserLogin.value user.Login)
+                    Bulma.subtitle.p user.Login.Value
                 ]
             ]
             Bulma.column [
@@ -441,7 +441,7 @@ let renderAddUser (state: State) (dispatch: Msg -> unit) =
     let error =
         if String.IsNullOrWhiteSpace state.NewUsername
         then Some ""
-        elif state.Users |> List.exists (fun user -> UserLogin.value user.Login = state.NewUsername.Trim())
+        elif state.Users |> List.exists (fun user -> user.Login.Value = state.NewUsername.Trim())
         then Some "User already exists."
         else None
     Html.div [
@@ -860,7 +860,7 @@ let renderTasks (state: State) (dispatch: Msg -> unit) =
 let render state dispatch =
     centered [
         Html.h1 [
-            Html.strong ((UserLogin.value state.User.Username).ToUpper())
+            Html.strong (state.User.Username.Value.ToUpper())
         ]
 
         Html.p "This is the admin page"

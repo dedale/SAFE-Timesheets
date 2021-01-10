@@ -32,7 +32,7 @@ let render (state: State) (dispatch: Msg -> unit) =
 
     | LoggedIn user ->
         Html.div [
-            Html.h1 (sprintf "Welcome, %s" (UserLogin.value user.Username))
+            Html.h1 (sprintf "Welcome, %s" user.Username.Value)
             if user.IsAdmin then
                 Bulma.button.a [
                     color.isInfo

@@ -19,8 +19,8 @@ type FileConnection (sqlite) =
 
 let boxCustom x =
     match box x with
-    | :? SafeDate as d -> SafeDate.value d |> box
-    | :? WorkDays as d -> WorkDays.value d |> box
+    | :? SafeDate as d -> box d.Value
+    | :? WorkDays as d -> box d.Value
     | o -> o
 
 module TypeHandlers =
@@ -28,7 +28,7 @@ module TypeHandlers =
     type UserIdHandler() =
         inherit SqlMapper.TypeHandler<UserId>()
 
-        override __.SetValue(param, id) = param.Value <- UserId.value id
+        override __.SetValue(param, id) = param.Value <- id.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> UserId
 
@@ -37,7 +37,7 @@ module TypeHandlers =
     type TeamIdHandler() =
         inherit SqlMapper.TypeHandler<TeamId>()
 
-        override __.SetValue(param, id) = param.Value <- TeamId.value id
+        override __.SetValue(param, id) = param.Value <- id.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> TeamId
 
@@ -46,7 +46,7 @@ module TypeHandlers =
     type TaskIdHandler() =
         inherit SqlMapper.TypeHandler<TaskId>()
 
-        override __.SetValue(param, id) = param.Value <- TaskId.value id
+        override __.SetValue(param, id) = param.Value <- id.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> TaskId
 
@@ -55,7 +55,7 @@ module TypeHandlers =
     type CostCenterIdHandler() =
         inherit SqlMapper.TypeHandler<CostCenterId>()
 
-        override __.SetValue(param, id) = param.Value <- CostCenterId.value id
+        override __.SetValue(param, id) = param.Value <- id.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> CostCenterId
 
@@ -64,7 +64,7 @@ module TypeHandlers =
     type ActivityIdHandler() =
         inherit SqlMapper.TypeHandler<ActivityId>()
 
-        override __.SetValue(param, id) = param.Value <- ActivityId.value id
+        override __.SetValue(param, id) = param.Value <- id.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> ActivityId
 
@@ -74,7 +74,7 @@ module TypeHandlers =
         inherit SqlMapper.TypeHandler<UserLogin>()
 
         override __.SetValue(param, login) =
-            param.Value <- UserLogin.value login
+            param.Value <- login.Value
 
         override __.Parse(value: obj) =
             let date = value :?> string
@@ -91,7 +91,7 @@ module TypeHandlers =
         override __.SetValue(param, date) =
             let valueOrNull =
                 match date with
-                | Some d -> SafeDate.value d |> box
+                | Some d -> box d.Value
                 | None   -> null
             param.Value <- valueOrNull
 
@@ -111,7 +111,7 @@ module TypeHandlers =
         inherit SqlMapper.TypeHandler<SafeDate>()
 
         override __.SetValue(param, date) =
-            param.Value <- SafeDate.value date
+            param.Value <- date.Value
 
         override __.Parse(value: obj) =
             let date = value :?> string |> DateTime.Parse
@@ -126,7 +126,7 @@ module TypeHandlers =
         inherit SqlMapper.TypeHandler<WorkDays>()
 
         override __.SetValue(param, days) =
-            param.Value <- WorkDays.value days
+            param.Value <- days.Value
 
         override __.Parse(value: obj) =
             let days = value :?> float
