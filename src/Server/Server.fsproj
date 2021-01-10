@@ -5,6 +5,7 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FileSystem.fs" />
     <Compile Include="Handlers\Login.fs" />
     <Compile Include="Handlers\User.fs" />
     <Compile Include="Handlers\Team.fs" />

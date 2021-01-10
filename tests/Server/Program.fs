@@ -5,6 +5,8 @@ open Expecto
 let all =
     testList "All"
         [
+            FileSystem.Tests.all
+            Database.Tests.all
             Server.Tests.all
         ]
 
