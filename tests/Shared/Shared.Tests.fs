@@ -154,9 +154,28 @@ let week = testList "Week" [
     ]
 ]
 
+let days = testList "Days" [
+    testCase "Days should be >0" <| fun _ ->
+        let error = WorkDays.create -1.
+        let expected = Error "days should be > 0"
+        Expect.equal error expected ""
+
+    testCase "Days should be <= 5" <| fun _ ->
+        let error = WorkDays.create 5.1
+        let expected = Error "days should be <= 5"
+        Expect.equal error expected ""
+
+    testCase "Create OK" <| fun _ ->
+        [ 0.1; 1.; 4.0; 5.0 ]
+        |> List.iter (fun days -> 
+            let result = WorkDays.create days
+            Expect.isOk result "Should create date")
+]
+
 let all =
     testList "Domain"
         [
             date
             week
+            days
         ]

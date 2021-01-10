@@ -220,3 +220,16 @@ module Week =
         | Ok M, Ok F -> M, F
         | Error m, _ -> failwith m
         | _, Error m -> failwith m
+
+type WorkDays = private WorkDays of float
+
+module WorkDays =
+    let create (days: float) =
+        if days <= 0. then
+            Error "days should be > 0"
+        elif days > 5. then
+            Error "days should be <= 5"
+        else
+            WorkDays(days) |> Ok
+
+    let value (WorkDays d) = d
