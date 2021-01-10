@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="FileSystem.fs" />
+    <Compile Include="Database.fs" />
     <Compile Include="Handlers\Login.fs" />
     <Compile Include="Handlers\User.fs" />
     <Compile Include="Handlers\Team.fs" />
@@ -17,6 +18,8 @@
     <ProjectReference Include="..\Shared\Shared.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.Data.Dapper" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="5.0.1" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="6.8.0" />
     <PackageReference Include="Saturn" Version="0.14.1" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.8.0" />

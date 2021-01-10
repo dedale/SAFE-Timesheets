@@ -45,6 +45,10 @@ module UserId =
     let value (UserId id) = id
     let route (UserId id) = sprintf "/api/user/%i" id
 
+// Attribute needed to avoid InvalidOperationException: A parameterless default constructor
+// or one matching signature (System.Int64 Id, System.String Name, System.String Alias) is
+// required for Database+Types+Bird materialization
+[<CLIMutable>]
 type User = {
     Id: UserId
     Login: UserLogin
@@ -63,6 +67,7 @@ module TeamId =
     let value (TeamId id) = id
     let route (TeamId id) = sprintf "/api/team/%i" id
 
+[<CLIMutable>]
 type Team = {
     Id: TeamId
     Name: string
@@ -79,6 +84,7 @@ module CostCenterId =
     let routeSpinal (CostCenterId id) = sprintf "/api/cost-center/%i" id
     let route = routeCamel
 
+[<CLIMutable>]
 type CostCenter = {
     Id: CostCenterId
     Name: string
@@ -90,10 +96,29 @@ module TaskId =
     let value (TaskId id) = id
     let route (TaskId id) = sprintf "/api/task/%i" id
 
+[<CLIMutable>]
 type Task = {
     Id: TaskId
     Name: string
     CostCenterId: CostCenterId
+}
+
+[<CLIMutable>]
+type TeamMember = {
+    UserId: UserId
+    TeamId: TeamId
+}
+
+[<CLIMutable>]
+type TeamManager = {
+    TeamId: TeamId
+    ManagerId: UserId
+}
+
+[<CLIMutable>]
+type TeamTask = {
+    TeamId: TeamId
+    TaskId: TaskId
 }
 
 type YearNumber = private YearNumber of int
@@ -233,3 +258,18 @@ module WorkDays =
             WorkDays(days) |> Ok
 
     let value (WorkDays d) = d
+
+type ActivityId = ActivityId of int
+
+module ActivityId =
+    let value (ActivityId id) = id
+
+// No CLIMutable attribute because DTO type is different
+type Activity = {
+    Id: ActivityId
+    Date: SafeDate
+    UserId: UserId
+    TaskId: TaskId
+    Days: WorkDays
+    Comment: string option
+}
