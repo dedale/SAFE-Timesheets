@@ -96,3 +96,127 @@ type Task = {
     CostCenterId: CostCenterId
 }
 
+type YearNumber = private YearNumber of int
+
+module YearNumber =
+    // 2007-01-01 is a Monday
+    let min = 2007
+    let max = 2050
+    let create year =
+        if year < min then
+            Error (sprintf "Year should be >= %i" min)
+        elif year > max then
+            Error (sprintf "Year should be <= %i" max)
+        else
+            YearNumber year |> Ok
+
+type MonthNumber = private MonthNumber of int
+
+module MonthNumber =
+    let create month =
+        if month < 0 then
+            Error "month should be >= 1"
+        elif month = 0 then
+            Error "months are 1-indexed, sorry"
+        elif month > 12 then
+            Error "month should be <= 12"
+        else
+            MonthNumber month |> Ok
+
+    let ofDate (date: DateTime) = MonthNumber date.Month
+
+    let value (MonthNumber month) = month
+
+type SafeDate = private SafeDate of DateTime
+
+module SafeDate =
+    let create (date: DateTime) =
+        if date.TimeOfDay <> TimeSpan.Zero then
+            Error "TimeOfDay should be zero"
+        else
+            match YearNumber.create date.Year with
+            | Error m -> Error m
+            | Ok _ -> SafeDate date |> Ok
+
+    let value (SafeDate d) = d
+
+    let today = SafeDate DateTime.Today
+
+    let min = SafeDate (DateTime(YearNumber.min, 1, 1))
+
+let rec private findMonday (date: DateTime) =
+    if date.DayOfWeek = DayOfWeek.Monday
+    then date
+    else findMonday (date.AddDays -1.)
+
+type Week = private {
+        number: int
+        year: int
+    } with
+        member x.Number = x.number
+        member x.Year = x.year
+
+module Week =
+    let start (date: SafeDate) =
+        let Monday = SafeDate.value date |> findMonday
+        match SafeDate.create Monday with
+        | Ok d -> d
+        | _ -> failwith "Invalid date"
+
+    let finish (date: SafeDate) =
+        let Friday = (start date |> SafeDate.value).AddDays 4.
+        match SafeDate.create Friday with
+        | Ok d -> d
+        | _ -> failwith "Invalid date"
+
+    // https://fr.wikipedia.org/wiki/Num%C3%A9rotation_ISO_des_semaines
+    // Using Jan 4 rule
+    let ofDate (date: SafeDate) =
+        let value = SafeDate.value date
+        let Monday1, year =
+            let thisYear = DateTime(value.Year, 1, 4) |> findMonday
+            // First days of year before first Monday when Monday <= Jan 4
+            if thisYear > value
+            then DateTime(value.Year - 1, 1, 4) |> findMonday, value.Year - 1
+            else
+                let nextYear = DateTime(value.Year + 1, 1, 4) |> findMonday
+                // Last days of year when first Monday of next year > Jan 4
+                if nextYear <= value
+                then nextYear, value.Year + 1
+                else thisYear, value.Year
+        let number = (value - Monday1).Days / 7 + 1
+        { number = number; year = year }
+
+    let create number year =
+        if number <= 0
+        then Error "Number should be > 0"
+        elif number >= 54
+        then Error "Number should be <= 53"
+        else
+            match SafeDate.create (DateTime(year, 1, 4).AddDays(7. * float (number - 1))) with
+            | Error m -> Error m
+            | Ok date ->
+                let expected = ofDate date
+                if expected.Number = number
+                then { number = number; year = year } |> Ok
+                else Error (sprintf "No week %d in year %d (should be %d)" number year expected.Number)
+
+    let first year =
+        match create 1 year with
+        | Ok week -> week
+        | Error m -> failwith m
+    let last year =
+        DateTime(year + 1, 1, 4).AddDays(-7.)
+        |> SafeDate.create
+        |> (fun x ->
+            match x with
+            | Ok date -> ofDate date
+            | Error m -> failwith m)
+
+    let range (week: Week) =
+        let Monday = DateTime(week.Year, 1, 4).AddDays(7. * float (week.Number - 1)) |> findMonday
+        let Friday = Monday.AddDays 4.
+        match SafeDate.create Monday, SafeDate.create Friday with
+        | Ok M, Ok F -> M, F
+        | Error m, _ -> failwith m
+        | _, Error m -> failwith m
