@@ -40,7 +40,7 @@ let render (state: State) (dispatch: Msg -> unit) =
                     prop.href (Router.format("admin"))
                     prop.text "Admin"
                 ]
-            if user.IsManager then
+            if not user.ManagedTeams.IsEmpty then
                 Bulma.button.a [
                     color.isInfo
                     prop.style [ style.margin 5 ]

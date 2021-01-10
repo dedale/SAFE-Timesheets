@@ -25,6 +25,10 @@ let webApp =
         post Route.team Handlers.Team.addTeam
         deletef "/api/teams/%i" Handlers.Team.delTeam
 
+        getf "/api/teams/%i/users" Handlers.Team.getTeamUsers
+        postf "/api/teams/%i/tasks" Handlers.Team.addTeamTask
+        getf "/api/teams/%i/tasks" Handlers.Team.getTeamTasks
+
         // https://blog.restcase.com/5-basic-rest-api-design-guidelines/
         // https://blog.octo.com/en/design-a-rest-api/#case_uri
         get Route.costCenterCamel Handlers.CostCenter.getCostCenters

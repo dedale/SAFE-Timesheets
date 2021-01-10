@@ -61,17 +61,13 @@ type User = {
     Name: string
 }
 
-type LoggedUser =
-    { Username : UserLogin
-      Token : JWT
-      IsAdmin : bool
-      IsManager : bool }
-
 type TeamId = TeamId of int
 
 module TeamId =
     let value (TeamId id) = id
     let route (TeamId id) = sprintf "/api/teams/%i" id
+    let userRoute (TeamId id) = sprintf "/api/teams/%i/users" id
+    let taskRoute (TeamId id) = sprintf "/api/teams/%i/tasks" id
 
 type TeamId with
     member x.Value = TeamId.value x
@@ -81,6 +77,12 @@ type Team = {
     Id: TeamId
     Name: string
 }
+
+type LoggedUser =
+    { Username : UserLogin
+      Token : JWT
+      IsAdmin : bool
+      ManagedTeams : Team list }
 
 type CostCenterId = CostCenterId of int
 

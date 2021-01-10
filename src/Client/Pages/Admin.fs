@@ -269,7 +269,11 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | LoadUsers (Completed result) ->
         match result with
         | Ok values ->
-            { state with Users = values }, Cmd.none
+            let defaultManagerId =
+                if values.IsEmpty
+                then None
+                else values |> List.head |> (fun x -> x.Id) |> Some
+            { state with Users = values; NewTeamManagerId = defaultManagerId }, Cmd.none
         | _ ->
             state, Cmd.none
 
@@ -287,7 +291,11 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | LoadCostCenters (Completed result) ->
         match result with
         | Ok values ->
-            { state with CostCenters = values }, Cmd.none
+            let defaultCostCenterId =
+                if values.IsEmpty
+                then None
+                else values |> List.head |> (fun x -> x.Id) |> Some
+            { state with CostCenters = values; NewTaskCostCenterId = defaultCostCenterId }, Cmd.none
         | _ ->
             state, Cmd.none
 
@@ -656,7 +664,13 @@ let renderAddTeam (state: State) (dispatch: Msg -> unit) =
                     control.hasIconsLeft
                     prop.children [
                         Bulma.select (
-                            state.Users |> List.map (fun u -> Html.option u.Name)
+                            state.Users
+                            |> List.map (fun u ->
+                                Html.option [
+                                    prop.onClick (fun _ -> NewTeamManagerChanged u.Id |> dispatch)
+                                    prop.text u.Name
+                                ]
+                            )
                         )
                         Bulma.icon [
                             icon.isSmall; icon.isLeft
@@ -945,7 +959,7 @@ let render state dispatch =
                 prop.href (Router.format(""))
                 prop.text "Home"
             ]
-            if state.User.IsManager then
+            if not state.User.ManagedTeams.IsEmpty then
                 Bulma.button.a [
                     color.isInfo
                     prop.style [ style.margin 5 ]
@@ -965,7 +979,7 @@ let render state dispatch =
                 [ Tab.Users, "Users"
                   Tab.Teams, "Teams"
                   Tab.CostCenters, "Cost Centers"
-                  Tab.Tasks, "Tasks"
+                  Tab.Tasks, "Common Tasks"
                 ] |> List.map (fun (t, label) ->
                     Html.li [
                         if state.Tab = t then tab.isActive

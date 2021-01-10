@@ -283,6 +283,15 @@ module Queries =
             parameters (dict ["Login", box login])
         }
 
+        member __.GetByTeam (id: TeamId) = querySeqUserAsync {
+            script """
+                SELECT User.* FROM User
+                INNER JOIN TeamMember ON User.id = TeamMember.UserId
+                WHERE TeamMember.TeamId = @TeamId
+            """
+            parameters (dict ["TeamId", box id])
+        }
+
     type Team (connectionF: unit -> Connection) =
 
         let querySingleIntOptionAsync = querySingleOptionAsync<int> connectionF
@@ -305,6 +314,16 @@ module Queries =
         member __.GetSingleByName name = querySingleTeamOptionAsync {
             script "SELECT * FROM Team WHERE Name = @Name LIMIT 1"
             parameters (dict ["Name", box name])
+        }
+
+        member __.GetManagedBy (manager: UserLogin) = querySeqTeamAsync {
+            script """
+                SELECT Team.* FROM Team
+                INNER JOIN TeamManager ON Team.Id = TeamManager.TeamId
+                INNER JOIN User ON TeamManager.ManagerId = User.Id
+                WHERE User.Login = @Login
+            """
+            parameters (dict ["Login", box manager])
         }
 
     type TeamMember (connectionF: unit -> Connection) =
@@ -374,13 +393,26 @@ module Queries =
                 parameters (dict ["Name", box name; "CostCenterId", box costCenterId])
             }  |> Async.map (Option.map TaskId)
 
-        member __.GetAll() = querySeqTaskAsync {
-            script "SELECT * FROM Task"
+        member __.GetCommon() = querySeqTaskAsync {
+            script """
+                SELECT Task.* FROM Task
+                LEFT OUTER JOIN TeamTask ON Task.id = TeamTask.Taskid
+                WHERE TeamTask.TaskId IS NULL
+            """
         }
 
         member __.GetSingleByName name = querySingleTaskOptionAsync {
             script "SELECT * FROM Task WHERE Name = @Name LIMIT 1"
             parameters (dict ["Name", box name])
+        }
+
+        member __.GetByTeam (id: TeamId) = querySeqTaskAsync {
+            script """
+                SELECT Task.* FROM Task
+                INNER JOIN TeamTask ON Task.id = TeamTask.Taskid
+                WHERE TeamTask.TeamId = @TeamId
+            """
+            parameters (dict ["TeamId", box id])
         }
 
     type TeamTask (connectionF: unit -> Connection) =
@@ -455,11 +487,17 @@ module Queries =
             let user = User connectionF
             let! manager1Id = user.New "manager1" "Manager 1" None None |> Async.map valueOrFail
 
+            let user = User connectionF
+            let! user1Id = user.New "user1" "User 1" None None |> Async.map valueOrFail
+
             let team = Team connectionF
             let! team1Id = team.New "Team 1" |> Async.map valueOrFail
 
             let teamMember = TeamMember connectionF
             let! _ = teamMember.New manager1Id team1Id
+
+            let teamMember = TeamMember connectionF
+            let! _ = teamMember.New user1Id team1Id
 
             let teamManager = TeamManager connectionF
             let! _ = teamManager.New team1Id manager1Id
@@ -469,6 +507,12 @@ module Queries =
 
             let task = Task connectionF
             let! taskId = task.New "Task 1" costCenterId |> Async.map valueOrFail
+
+            let! teamTaskId = task.New "Team 1 Task 1" costCenterId |> Async.map valueOrFail
+
+            let teamTask = TeamTask connectionF
+            let! _ = teamTask.New team1Id teamTaskId
+
             ()
 
         return ()

@@ -39,10 +39,20 @@ module JsonWebToken =
 
 open Shared
 
+open Database
+
 open FSharp.Control.Tasks.ContextInsensitive
+open FSharp.Data.Dapper
 open Giraffe
 open Microsoft.AspNetCore.Http
 open Saturn.ControllerHelpers
+
+let getTeams login = async {
+        use connection = new FileConnection(defaultFile)
+        let connectionF () = Connection.SqliteConnection connection.Value
+        let team = Queries.Team connectionF
+        return! team.GetManagedBy login |> Async.map List.ofSeq
+    }
 
 let validate (credentials: Shared.UserCredentials) =
     // TODO check that user exist in repository
@@ -52,7 +62,7 @@ let validate (credentials: Shared.UserCredentials) =
         { Username = login
           Token = JsonWebToken.generateToken credentials.Username
           IsAdmin = credentials.Username = "admin"
-          IsManager = credentials.Username.StartsWith("manager")
+          ManagedTeams = getTeams login |> Async.RunSynchronously //credentials.Username.StartsWith("manager")
         } |> Ok
     | Error m -> Error m
 

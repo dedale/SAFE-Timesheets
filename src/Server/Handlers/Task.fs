@@ -13,7 +13,7 @@ let getTasks (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let task = Queries.Task connectionF
-    let tasks = task.GetAll() |> Async.map List.ofSeq |> Async.RunSynchronously
+    let tasks = task.GetCommon() |> Async.map List.ofSeq |> Async.RunSynchronously
     return! ctx.WriteJsonAsync tasks
 }
 

@@ -119,8 +119,9 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
             match state.User with
             | Anonymous -> state, Router.navigate("login", HistoryMode.ReplaceState)
             | LoggedIn user ->
-                if user.IsManager then
-                    let teamState, teamCmd = Pages.Team.init user
+                if not user.ManagedTeams.IsEmpty then
+                    // TODO Manage more than one team
+                    let teamState, teamCmd = Pages.Team.init user.ManagedTeams.Head
                     show (Page.Team teamState), Cmd.map TeamMsg teamCmd
                 else
                     state, Router.navigate("login", HistoryMode.ReplaceState)
