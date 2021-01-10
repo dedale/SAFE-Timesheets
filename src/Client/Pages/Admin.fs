@@ -17,6 +17,11 @@ open Thoth.Json.Net
 
 open System
 
+type LoadUsersResult = Result<User list, string>
+type LoadTeamsResult = Result<Team list, string>
+type LoadCostCentersResult = Result<CostCenter list, string>
+type LoadTasksResult = Result<Task list, string>
+
 type AddUserResult = Result<User, string>
 type DelUserResult = Result<bool, string>
 
@@ -48,7 +53,7 @@ type State =
       TryDelUser : Deferred<DelUserResult>
       
       NewTeamName : string
-      NewTeamManagerId : UserId
+      NewTeamManagerId : UserId option
       Teams : Team list
       TryAddTeam : Deferred<AddTeamResult>
       TryDelTeam : Deferred<DelTeamResult>
@@ -59,7 +64,7 @@ type State =
       TryDelCostCenter : Deferred<DelCostCenterResult>
 
       NewTaskName : string
-      NewTaskCostCenterId : CostCenterId
+      NewTaskCostCenterId : CostCenterId option
       Tasks : Task list
       TryAddTask : Deferred<AddTaskResult>
       TryDelTask : Deferred<DelTaskResult>
@@ -67,6 +72,12 @@ type State =
 
 type Msg =
     | TabChanged of Tab
+    // Init
+    | LoadLists
+    | LoadUsers of PromiseStatus<LoadUsersResult>
+    | LoadTeams of PromiseStatus<LoadTeamsResult>
+    | LoadCostCenters of PromiseStatus<LoadCostCentersResult>
+    | LoadTasks of PromiseStatus<LoadTasksResult>
     // User
     | NewUsernameChanged of string
     | AddUserClicked of PromiseStatus<AddUserResult>
@@ -102,34 +113,34 @@ let (|TaskAdded|_|) = function
     | AddTaskClicked (Completed (Ok task)) -> Some task
     | _ -> None
 
-let dummyUsers =
-    let create id login name =
-        match UserLogin.create login with
-        | Ok l ->
-            { User.Id = UserId id
-              Login = l
-              Name = name }
-        | Error m -> failwith m
-    [ create 1 "jdoe123" "John DOE"
-      create 2 "vphilipp123456" "Vianney PHILIPPE"
+let getAllJson route = promise {
+    let props = [
+        Method HttpMethod.GET
+        Fetch.requestHeaders [ ContentType "application/json" ]
     ]
+    let! res = Fetch.fetch route props
+    return! res.text()
+}
 
-let dummyCostCenters =
-    let create id name =
-        { CostCenter.Id = CostCenterId id
-          Name = name }
-    [ create 1 "Business"
-      create 2 "IT"
-    ]
+let loadUsers() = promise {
+    let! txt = getAllJson Route.user
+    return Decode.Auto.unsafeFromString<User list> txt |> (Ok >> Completed)
+}
 
-let dummyTasks =
-    let create id name costCenterId =
-        { Task.Id = TaskId id
-          Name = name
-          CostCenterId = CostCenterId costCenterId }
-    [ create 1 "Business Projects" 1
-      create 2 "IT Projects" 2
-    ]
+let loadTeams() = promise {
+    let! txt = getAllJson Route.team
+    return Decode.Auto.unsafeFromString<Team list> txt |> (Ok >> Completed)
+}
+
+let loadCostCenters() = promise {
+    let! txt = getAllJson Route.costCenter
+    return Decode.Auto.unsafeFromString<CostCenter list> txt |> (Ok >> Completed)
+}
+
+let loadTasks() = promise {
+    let! txt = getAllJson Route.task
+    return Decode.Auto.unsafeFromString<Task list> txt |> (Ok >> Completed)
+}
 
 let addUser (username: string) = promise {
     let body = Encode.Auto.toString(0, username)
@@ -216,40 +227,88 @@ let init (user: LoggedUser) =
       Tab = Tab.Users
       // User
       NewUsername = ""
-      Users = dummyUsers
+      Users = []
       TryAddUser = NotStarted
       TryDelUser = NotStarted
       // Team
       NewTeamName = ""
-      NewTeamManagerId = (List.head dummyUsers).Id
-      Teams = [ { Id = TeamId 1; Name = "Cloud Ops" } ]
+      NewTeamManagerId = None
+      Teams = []
       TryAddTeam = NotStarted
       TryDelTeam = NotStarted
       // CostCenter
       NewCostCenterName = ""
-      CostCenters = dummyCostCenters
+      CostCenters = []
       TryAddCostCenter = NotStarted
       TryDelCostCenter = NotStarted
       // Task
       NewTaskName = ""
-      NewTaskCostCenterId = (List.head dummyCostCenters).Id
-      Tasks = dummyTasks
+      NewTaskCostCenterId = None
+      Tasks = []
       TryAddTask = NotStarted
       TryDelTask = NotStarted
-    }, Cmd.none
+    }, Cmd.ofMsg LoadLists
 
 let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     match msg with
     | TabChanged newTab ->
         { state with Tab = newTab }, Cmd.none
 
+    | LoadLists ->
+        let cmd load msg =
+            let onFailed (e: exn) = Error e.Message |> (Completed >> msg)
+            Cmd.OfPromise.either load () msg onFailed
+
+        state, Cmd.batch [
+            cmd loadUsers LoadUsers
+            cmd loadTeams LoadTeams
+            cmd loadCostCenters LoadCostCenters
+            cmd loadTasks LoadTasks
+        ]
+
+    | LoadUsers (Completed result) ->
+        match result with
+        | Ok values ->
+            { state with Users = values }, Cmd.none
+        | _ ->
+            state, Cmd.none
+
+    | LoadUsers _ -> state, Cmd.none
+
+    | LoadTeams (Completed result) ->
+        match result with
+        | Ok values ->
+            { state with Teams = values }, Cmd.none
+        | _ ->
+            state, Cmd.none
+
+    | LoadTeams _ -> state, Cmd.none
+
+    | LoadCostCenters (Completed result) ->
+        match result with
+        | Ok values ->
+            { state with CostCenters = values }, Cmd.none
+        | _ ->
+            state, Cmd.none
+
+    | LoadCostCenters _ -> state, Cmd.none
+
+    | LoadTasks (Completed result) ->
+        match result with
+        | Ok values ->
+            { state with Tasks = values }, Cmd.none
+        | _ ->
+            state, Cmd.none
+
+    | LoadTasks _ -> state, Cmd.none
+
     | NewUsernameChanged user ->
         { state with NewUsername = user }, Cmd.none
 
     | AddUserClicked Pending ->
         let nextState = { state with TryAddUser = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> (Completed >> AddUserClicked)
-        let nextCmd = Cmd.OfPromise.either addUser state.NewUsername AddUserClicked OnFailed
+        let onFailed (e: exn) = Error e.Message |> (Completed >> AddUserClicked)
+        let nextCmd = Cmd.OfPromise.either addUser state.NewUsername AddUserClicked onFailed
         nextState, nextCmd
 
     | AddUserClicked (Completed addResult) ->
@@ -282,13 +341,18 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         { state with NewTeamName = team }, Cmd.none
 
     | NewTeamManagerChanged id ->
-        { state with NewTeamManagerId = id }, Cmd.none
+        { state with NewTeamManagerId = Some id }, Cmd.none
 
     | AddTeamClicked Pending ->
-        let nextState = { state with TryAddTeam = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> (Completed >> AddTeamClicked)
-        let nextCmd = Cmd.OfPromise.either (uncurry addTeam) (state.NewTeamName, state.NewTeamManagerId) AddTeamClicked OnFailed
-        nextState, nextCmd
+        match state.NewTeamManagerId with
+        | Some managerId ->
+            let nextState = { state with TryAddTeam = InProgress }
+            let onFailed (e: exn) = Error e.Message |> (Completed >> AddTeamClicked)
+            let nextCmd = Cmd.OfPromise.either (uncurry addTeam) (state.NewTeamName, managerId) AddTeamClicked onFailed
+            nextState, nextCmd
+        | _ ->
+            // Not reachable: click disabled when no cost center
+            state, Cmd.none
 
     | AddTeamClicked (Completed addResult) ->
         let nextState = { state with TryAddTeam = Resolved addResult }
@@ -321,8 +385,8 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
 
     | AddCostCenterClicked Pending ->
         let nextState = { state with TryAddCostCenter = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> (Completed >> AddCostCenterClicked)
-        let nextCmd = Cmd.OfPromise.either addCostCenter state.NewCostCenterName AddCostCenterClicked OnFailed
+        let onFailed (e: exn) = Error e.Message |> (Completed >> AddCostCenterClicked)
+        let nextCmd = Cmd.OfPromise.either addCostCenter state.NewCostCenterName AddCostCenterClicked onFailed
         nextState, nextCmd
 
     | AddCostCenterClicked (Completed addResult) ->
@@ -355,13 +419,18 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         { state with NewTaskName = task }, Cmd.none
 
     | NewTaskCostCenterChanged id ->
-        { state with NewTaskCostCenterId = id }, Cmd.none
+        { state with NewTaskCostCenterId = Some id }, Cmd.none
 
     | AddTaskClicked Pending ->
-        let nextState = { state with TryAddTask = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> (Completed >> AddTaskClicked)
-        let nextCmd = Cmd.OfPromise.either (uncurry addTask) (state.NewTaskName, state.NewTaskCostCenterId) AddTaskClicked OnFailed
-        nextState, nextCmd
+        match state.NewTaskCostCenterId with
+        | Some costCenterId ->
+            let nextState = { state with TryAddTask = InProgress }
+            let onFailed (e: exn) = Error e.Message |> (Completed >> AddTaskClicked)
+            let nextCmd = Cmd.OfPromise.either (uncurry addTask) (state.NewTaskName, costCenterId) AddTaskClicked onFailed
+            nextState, nextCmd
+        | _ ->
+            // Not reachable: click disabled when no cost center
+            state, Cmd.none
 
     | AddTaskClicked (Completed addResult) ->
         let nextState = { state with TryAddTask = Resolved addResult }
@@ -545,6 +614,8 @@ let renderAddTeam (state: State) (dispatch: Msg -> unit) =
         then Some ""
         elif state.Teams |> List.exists (fun team -> team.Name = state.NewTeamName.Trim())
         then Some "Team already exists."
+        elif state.Users.IsEmpty
+        then Some "No users"
         else None
     Html.div [
         prop.style [
@@ -764,6 +835,8 @@ let renderAddTask (state: State) (dispatch: Msg -> unit) =
         then Some ""
         elif state.Tasks |> List.exists (fun task -> task.Name = state.NewTaskName.Trim())
         then Some "Task already exists."
+        elif state.CostCenters.IsEmpty
+        then Some "No cost center"
         else None
     Html.div [
         prop.style [

@@ -2,9 +2,20 @@
 
 open Shared
 
+open Database
+
+open FSharp.Data.Dapper
 open FSharp.Control.Tasks.ContextInsensitive
 open Giraffe
 open Microsoft.AspNetCore.Http
+
+let getTasks (next: HttpFunc) (ctx: HttpContext) = task {
+    use connection = new FileConnection(defaultFile)
+    let connectionF () = Connection.SqliteConnection connection.Value
+    let task = Queries.Task connectionF
+    let tasks = task.GetAll() |> Async.map List.ofSeq |> Async.RunSynchronously
+    return! ctx.WriteJsonAsync tasks
+}
 
 let addTask (next: HttpFunc) (ctx: HttpContext) = task {
     // TODO db

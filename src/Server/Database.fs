@@ -8,8 +8,11 @@ open Dapper
 open FSharp.Data.Dapper
 open Microsoft.Data.Sqlite
 open System
+open System.Reflection
 
-type FileConnection (sqlite) =
+let defaultFile = Assembly.ExecutingDir.FileInDir("timesheets.sqlite3")
+
+type FileConnection private (sqlite) =
     new (file: FilePath) =
         let connectionString = sprintf "Data Source = %s;" file.Path
         new FileConnection(new SqliteConnection(connectionString))
@@ -433,3 +436,40 @@ module Queries =
             script "DELETE FROM Activity WHERE Id = @Id"
             parameters (dict ["Id", box id])
         }
+
+    let init() = async {
+
+        let valueOrFail result =
+            match result with
+            | Some x -> x
+            | None -> failwith "No value!"
+
+        if not defaultFile.Exists then
+
+            use connection = new FileConnection(defaultFile)
+            let connectionF () = Connection.SqliteConnection connection.Value
+
+            let schema = Schema connectionF
+            let! _ = schema.CreateTables()
+
+            let user = User connectionF
+            let! manager1Id = user.New "manager1" "Manager 1" None None |> Async.map valueOrFail
+
+            let team = Team connectionF
+            let! team1Id = team.New "Team 1" |> Async.map valueOrFail
+
+            let teamMember = TeamMember connectionF
+            let! _ = teamMember.New manager1Id team1Id
+
+            let teamManager = TeamManager connectionF
+            let! _ = teamManager.New team1Id manager1Id
+
+            let costCenter = CostCenter connectionF
+            let! costCenterId = costCenter.New "Cost Center 1" |> Async.map valueOrFail
+
+            let task = Task connectionF
+            let! taskId = task.New "Task 1" costCenterId |> Async.map valueOrFail
+            ()
+
+        return ()
+    }

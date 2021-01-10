@@ -2,12 +2,23 @@
 
 open Shared
 
+open Database
+
 open FSharp.Control.Tasks.ContextInsensitive
+open FSharp.Data.Dapper
 open Giraffe
 open Microsoft.AspNetCore.Http
 open Saturn.ControllerHelpers
 
 open System.Text.RegularExpressions
+
+let getUsers (next: HttpFunc) (ctx: HttpContext) = task {
+    use connection = new FileConnection(defaultFile)
+    let connectionF () = Connection.SqliteConnection connection.Value
+    let user = Queries.User connectionF
+    let users = user.GetAll() |> Async.map List.ofSeq |> Async.RunSynchronously
+    return! ctx.WriteJsonAsync users
+}
 
 let dummyNames = [
     "Archibald"
