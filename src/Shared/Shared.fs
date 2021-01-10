@@ -2,12 +2,12 @@ module Shared
 
 module Route =
     let login = "/api/login"
-    let user = "/api/user"
-    let team = "/api/team"
-    let costCenterCamel = "/api/cost_center"
-    let costCenterSpinal = "/api/cost-center"
+    let user = "/api/users"
+    let team = "/api/teams"
+    let costCenterCamel = "/api/cost_centers"
+    let costCenterSpinal = "/api/cost-centers"
     let costCenter = costCenterCamel
-    let task = "/api/task"
+    let task = "/api/tasks"
 
 open System
 
@@ -46,7 +46,7 @@ type UserId = UserId of int
 
 module UserId =
     let value (UserId id) = id
-    let route (UserId id) = sprintf "/api/user/%i" id
+    let route (UserId id) = sprintf "/api/users/%i" id
 
 type UserId with
     member x.Value = UserId.value x
@@ -71,7 +71,7 @@ type TeamId = TeamId of int
 
 module TeamId =
     let value (TeamId id) = id
-    let route (TeamId id) = sprintf "/api/team/%i" id
+    let route (TeamId id) = sprintf "/api/teams/%i" id
 
 type TeamId with
     member x.Value = TeamId.value x
@@ -89,8 +89,8 @@ module CostCenterId =
 
     // https://blog.restcase.com/5-basic-rest-api-design-guidelines/
     // https://blog.octo.com/en/design-a-rest-api/#case_uri
-    let routeCamel (CostCenterId id) = sprintf "/api/cost_center/%i" id
-    let routeSpinal (CostCenterId id) = sprintf "/api/cost-center/%i" id
+    let routeCamel (CostCenterId id) = sprintf "/api/cost_centers/%i" id
+    let routeSpinal (CostCenterId id) = sprintf "/api/cost-centers/%i" id
     let route = routeCamel
 
 type CostCenterId with
@@ -106,7 +106,7 @@ type TaskId = TaskId of int
 
 module TaskId =
     let value (TaskId id) = id
-    let route (TaskId id) = sprintf "/api/task/%i" id
+    let route (TaskId id) = sprintf "/api/tasks/%i" id
 
 type TaskId with
     member x.Value = TaskId.value x

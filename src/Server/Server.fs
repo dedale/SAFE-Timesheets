@@ -19,11 +19,11 @@ let webApp =
 
         get Route.user Handlers.User.getUsers
         post Route.user Handlers.User.addUser
-        deletef "/api/user/%i" Handlers.User.delUser
+        deletef "/api/users/%i" Handlers.User.delUser
 
         get Route.team Handlers.Team.getTeams
         post Route.team Handlers.Team.addTeam
-        deletef "/api/team/%i" Handlers.Team.delTeam
+        deletef "/api/teams/%i" Handlers.Team.delTeam
 
         // https://blog.restcase.com/5-basic-rest-api-design-guidelines/
         // https://blog.octo.com/en/design-a-rest-api/#case_uri
@@ -31,12 +31,12 @@ let webApp =
         get Route.costCenterSpinal Handlers.CostCenter.getCostCenters
         post Route.costCenterCamel Handlers.CostCenter.addCostCenter
         post Route.costCenterSpinal Handlers.CostCenter.addCostCenter
-        deletef "/api/cost_center/%i" Handlers.CostCenter.delCostCenter
-        deletef "/api/cost-center/%i" Handlers.CostCenter.delCostCenter
+        deletef "/api/cost_centers/%i" Handlers.CostCenter.delCostCenter
+        deletef "/api/cost-centers/%i" Handlers.CostCenter.delCostCenter
 
         get Route.task Handlers.Task.getTasks
         post Route.task Handlers.Task.addTask
-        deletef "/api/task/%i" Handlers.Task.delTask
+        deletef "/api/tasks/%i" Handlers.Task.delTask
     }
 
 let app =
