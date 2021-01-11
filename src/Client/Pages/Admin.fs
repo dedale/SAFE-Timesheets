@@ -125,22 +125,22 @@ let getAllJson route = promise {
 
 let loadUsers() = promise {
     let! txt = getAllJson Route.user
-    return Decode.Auto.unsafeFromString<User list> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<User list> txt |> Ok
 }
 
 let loadTeams() = promise {
     let! txt = getAllJson Route.team
-    return Decode.Auto.unsafeFromString<Team list> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<Team list> txt |> Ok
 }
 
 let loadCostCenters() = promise {
     let! txt = getAllJson Route.costCenter
-    return Decode.Auto.unsafeFromString<CostCenter list> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<CostCenter list> txt |> Ok
 }
 
 let loadTasks() = promise {
     let! txt = getAllJson Route.task
-    return Decode.Auto.unsafeFromString<Task list> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<Task list> txt |> Ok
 }
 
 let addUser (username: string) = promise {
@@ -152,15 +152,15 @@ let addUser (username: string) = promise {
     ]
     let! res = Fetch.fetch Route.user props
     let! txt = res.text()
-    return Decode.Auto.unsafeFromString<User> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<User> txt |> Ok
 }
 
-let delUser (id: UserId) = promise {
+let delUser userId = promise {
     let props = [
         Method HttpMethod.DELETE
     ]
-    let! res = Fetch.fetch (UserId.route id) props
-    return res.Ok |> (Ok >> Completed)
+    let! res = Fetch.fetch (UserId.route userId) props
+    return res.Ok |> Ok
 }
 
 let addTeam (name: string) (managerId: UserId) = promise {
@@ -172,15 +172,15 @@ let addTeam (name: string) (managerId: UserId) = promise {
     ]
     let! res = Fetch.fetch Route.team props
     let! txt = res.text()
-    return Decode.Auto.unsafeFromString<Team> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<Team> txt |> Ok
 }
 
-let delTeam (id: TeamId) = promise {
+let delTeam teamId = promise {
     let props = [
         Method HttpMethod.DELETE
     ]
-    let! res = Fetch.fetch (TeamId.route id) props
-    return res.Ok |> (Ok >> Completed)
+    let! res = Fetch.fetch (TeamId.route teamId) props
+    return res.Ok |> Ok
 }
 
 let addCostCenter (name: string) = promise {
@@ -192,15 +192,15 @@ let addCostCenter (name: string) = promise {
     ]
     let! res = Fetch.fetch Route.costCenter props
     let! txt = res.text()
-    return Decode.Auto.unsafeFromString<CostCenter> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<CostCenter> txt |> Ok
 }
 
-let delCostCenter (id: CostCenterId) = promise {
+let delCostCenter costCenterId = promise {
     let props = [
         Method HttpMethod.DELETE
     ]
-    let! res = Fetch.fetch (CostCenterId.route id) props
-    return res.Ok |> (Ok >> Completed)
+    let! res = Fetch.fetch (CostCenterId.route costCenterId) props
+    return res.Ok |> Ok
 }
 
 let addTask (name: string) (costCenterId: CostCenterId) = promise {
@@ -212,15 +212,15 @@ let addTask (name: string) (costCenterId: CostCenterId) = promise {
     ]
     let! res = Fetch.fetch Route.task props
     let! txt = res.text()
-    return Decode.Auto.unsafeFromString<Task> txt |> (Ok >> Completed)
+    return Decode.Auto.unsafeFromString<Task> txt |> Ok
 }
 
-let delTask (id: TaskId) = promise {
+let delTask taskId = promise {
     let props = [
         Method HttpMethod.DELETE
     ]
-    let! res = Fetch.fetch (TaskId.route id) props
-    return res.Ok |> (Ok >> Completed)
+    let! res = Fetch.fetch (TaskId.route taskId) props
+    return res.Ok |> Ok
 }
 
 let init (user: LoggedUser) =
@@ -250,6 +250,8 @@ let init (user: LoggedUser) =
       TryDelTask = NotStarted
     }, Cmd.ofMsg LoadLists
 
+let onFailed (e: exn) = Error e.Message
+
 let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     match msg with
     | TabChanged newTab ->
@@ -257,8 +259,7 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
 
     | LoadLists ->
         let cmd load msg =
-            let onFailed (e: exn) = Error e.Message |> (Completed >> msg)
-            Cmd.OfPromise.either load () msg onFailed
+            Cmd.OfPromise.either load () id onFailed |> Cmd.map (Completed >> msg)
 
         state, Cmd.batch [
             cmd loadUsers LoadUsers
@@ -316,8 +317,9 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
 
     | AddUserClicked Pending ->
         let nextState = { state with TryAddUser = InProgress }
-        let onFailed (e: exn) = Error e.Message |> (Completed >> AddUserClicked)
-        let nextCmd = Cmd.OfPromise.either addUser state.NewUsername AddUserClicked onFailed
+        let nextCmd =
+            Cmd.OfPromise.either addUser state.NewUsername id onFailed
+            |> Cmd.map (Completed >> AddUserClicked)
         nextState, nextCmd
 
     | AddUserClicked (Completed addResult) ->
@@ -328,19 +330,18 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         | _ ->
             nextState, Cmd.none
 
-    | DelUserClicked (id, Pending) ->
-        let toMsg x = DelUserClicked (id, x)
+    | DelUserClicked (userId, Pending) ->
+        let toMsg x = DelUserClicked (userId, x)
         let nextState = { state with TryDelUser = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> Completed |> toMsg
-        let nextCmd = Cmd.OfPromise.either delUser id toMsg OnFailed
+        let nextCmd = Cmd.OfPromise.either delUser userId id onFailed |> Cmd.map (Completed >> toMsg)
         nextState, nextCmd
 
-    | DelUserClicked (id, Completed delResult) ->
+    | DelUserClicked (userId, Completed delResult) ->
         let nextState = { state with TryDelUser = Resolved delResult }
         match delResult with
         | Ok deleted ->
             if deleted then
-                { nextState with Users = nextState.Users |> List.where (fun user -> user.Id <> id) }, Cmd.none
+                { nextState with Users = nextState.Users |> List.where (fun user -> user.Id <> userId) }, Cmd.none
             else
                 nextState, Cmd.none
         | _ ->
@@ -349,15 +350,16 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | NewTeamNameChanged team ->
         { state with NewTeamName = team }, Cmd.none
 
-    | NewTeamManagerChanged id ->
-        { state with NewTeamManagerId = Some id }, Cmd.none
+    | NewTeamManagerChanged managerId ->
+        { state with NewTeamManagerId = Some managerId }, Cmd.none
 
     | AddTeamClicked Pending ->
         match state.NewTeamManagerId with
         | Some managerId ->
             let nextState = { state with TryAddTeam = InProgress }
-            let onFailed (e: exn) = Error e.Message |> (Completed >> AddTeamClicked)
-            let nextCmd = Cmd.OfPromise.either (uncurry addTeam) (state.NewTeamName, managerId) AddTeamClicked onFailed
+            let nextCmd =
+                Cmd.OfPromise.either (uncurry addTeam) (state.NewTeamName, managerId) id onFailed
+                |> Cmd.map (Completed >> AddTeamClicked)
             nextState, nextCmd
         | _ ->
             // Not reachable: click disabled when no cost center
@@ -371,19 +373,18 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         | _ ->
             nextState, Cmd.none
 
-    | DelTeamClicked (id, Pending) ->
-        let toMsg x = DelTeamClicked (id, x)
+    | DelTeamClicked (teamId, Pending) ->
+        let toMsg x = DelTeamClicked (teamId, x)
         let nextState = { state with TryDelTeam = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> Completed |> toMsg
-        let nextCmd = Cmd.OfPromise.either delTeam id toMsg OnFailed
+        let nextCmd = Cmd.OfPromise.either delTeam teamId id onFailed |> Cmd.map (Completed >> toMsg)
         nextState, nextCmd
 
-    | DelTeamClicked (id, Completed delResult) ->
+    | DelTeamClicked (teamId, Completed delResult) ->
         let nextState = { state with TryDelTeam = Resolved delResult }
         match delResult with
         | Ok deleted ->
             if deleted then
-                { nextState with Teams = nextState.Teams |> List.where (fun team -> team.Id <> id) }, Cmd.none
+                { nextState with Teams = nextState.Teams |> List.where (fun team -> team.Id <> teamId) }, Cmd.none
             else
                 nextState, Cmd.none
         | _ ->
@@ -394,8 +395,9 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
 
     | AddCostCenterClicked Pending ->
         let nextState = { state with TryAddCostCenter = InProgress }
-        let onFailed (e: exn) = Error e.Message |> (Completed >> AddCostCenterClicked)
-        let nextCmd = Cmd.OfPromise.either addCostCenter state.NewCostCenterName AddCostCenterClicked onFailed
+        let nextCmd =
+            Cmd.OfPromise.either addCostCenter state.NewCostCenterName id onFailed
+            |> Cmd.map (Completed >> AddCostCenterClicked)
         nextState, nextCmd
 
     | AddCostCenterClicked (Completed addResult) ->
@@ -406,19 +408,18 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         | _ ->
             nextState, Cmd.none
 
-    | DelCostCenterClicked (id, Pending) ->
-        let toMsg x = DelCostCenterClicked (id, x)
+    | DelCostCenterClicked (costCenterId, Pending) ->
+        let toMsg x = DelCostCenterClicked (costCenterId, x)
         let nextState = { state with TryDelCostCenter = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> Completed |> toMsg
-        let nextCmd = Cmd.OfPromise.either delCostCenter id toMsg OnFailed
+        let nextCmd = Cmd.OfPromise.either delCostCenter costCenterId id onFailed |> Cmd.map (Completed >> toMsg)
         nextState, nextCmd
 
-    | DelCostCenterClicked (id, Completed delResult) ->
+    | DelCostCenterClicked (costCenterId, Completed delResult) ->
         let nextState = { state with TryDelCostCenter = Resolved delResult }
         match delResult with
         | Ok deleted ->
             if deleted then
-                { nextState with CostCenters = nextState.CostCenters |> List.where (fun costCenter -> costCenter.Id <> id) }, Cmd.none
+                { nextState with CostCenters = nextState.CostCenters |> List.where (fun costCenter -> costCenter.Id <> costCenterId) }, Cmd.none
             else
                 nextState, Cmd.none
         | _ ->
@@ -427,15 +428,16 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | NewTaskNameChanged task ->
         { state with NewTaskName = task }, Cmd.none
 
-    | NewTaskCostCenterChanged id ->
-        { state with NewTaskCostCenterId = Some id }, Cmd.none
+    | NewTaskCostCenterChanged costCenterId ->
+        { state with NewTaskCostCenterId = Some costCenterId }, Cmd.none
 
     | AddTaskClicked Pending ->
         match state.NewTaskCostCenterId with
         | Some costCenterId ->
             let nextState = { state with TryAddTask = InProgress }
-            let onFailed (e: exn) = Error e.Message |> (Completed >> AddTaskClicked)
-            let nextCmd = Cmd.OfPromise.either (uncurry addTask) (state.NewTaskName, costCenterId) AddTaskClicked onFailed
+            let nextCmd =
+                Cmd.OfPromise.either (uncurry addTask) (state.NewTaskName, costCenterId) id onFailed
+                |> Cmd.map (Completed >> AddTaskClicked)
             nextState, nextCmd
         | _ ->
             // Not reachable: click disabled when no cost center
@@ -449,19 +451,18 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
         | _ ->
             nextState, Cmd.none
 
-    | DelTaskClicked (id, Pending) ->
-        let toMsg x = DelTaskClicked (id, x)
+    | DelTaskClicked (taskId, Pending) ->
+        let toMsg x = DelTaskClicked (taskId, x)
         let nextState = { state with TryDelTask = InProgress }
-        let OnFailed (e: exn) = Error e.Message |> Completed |> toMsg
-        let nextCmd = Cmd.OfPromise.either delTask id toMsg OnFailed
+        let nextCmd = Cmd.OfPromise.either delTask taskId id onFailed |> Cmd.map (Completed >> toMsg)
         nextState, nextCmd
 
-    | DelTaskClicked (id, Completed delResult) ->
+    | DelTaskClicked (taskId, Completed delResult) ->
         let nextState = { state with TryDelTask = Resolved delResult }
         match delResult with
         | Ok deleted ->
             if deleted then
-                { nextState with Tasks = nextState.Tasks |> List.where (fun task -> task.Id <> id) }, Cmd.none
+                { nextState with Tasks = nextState.Tasks |> List.where (fun task -> task.Id <> taskId) }, Cmd.none
             else
                 nextState, Cmd.none
         | _ ->
@@ -667,7 +668,7 @@ let renderAddTeam (state: State) (dispatch: Msg -> unit) =
                         // https://stackoverflow.com/a/55375604/305023
                         Bulma.select [
                             match state.NewTeamManagerId with
-                            | Some id -> prop.value id.Value
+                            | Some managerId -> prop.value managerId.Value
                             | _ -> ()
                             prop.onChange (fun (ev: Event) -> ev.target?value |> UserId |> NewTeamManagerChanged |> dispatch)
                             prop.children (
@@ -903,7 +904,7 @@ let renderAddTask (state: State) (dispatch: Msg -> unit) =
                         // https://stackoverflow.com/a/55375604/305023
                         Bulma.select [
                             match state.NewTaskCostCenterId with
-                            | Some id -> prop.defaultValue id.Value
+                            | Some costCenterId -> prop.defaultValue costCenterId.Value
                             | _ -> ()
                             prop.onChange (fun (ev: Event) -> ev.target?value |> CostCenterId |> NewTaskCostCenterChanged |> dispatch)
                             prop.children (
