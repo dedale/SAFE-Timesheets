@@ -201,7 +201,7 @@ let renderWeeks (state: State) (dispatch: Msg -> unit) =
                                     yield Bulma.button.button [
                                         button.isSmall; spacing.mx1; spacing.my1
                                         match isFull with
-                                        | Some b -> color.isSuccess; if not b then color.isLight
+                                        | Some b -> if b then color.isSuccess else color.isInfo
                                         | _ -> color.isWhite
                                         prop.key (sprintf "week_%i_%i" state.Year.Value week.Number)
                                         prop.text week.Number
@@ -220,8 +220,9 @@ let render (state: State) (dispatch: Msg -> unit) =
         renderMenu state dispatch
 
         match state.User with
-        | LoggedIn _ ->
-            renderYearNavigation state dispatch
-            renderWeeks state dispatch
+        | LoggedIn user ->
+            if not user.IsAdmin then
+                renderYearNavigation state dispatch
+                renderWeeks state dispatch
         | _ -> Html.none
     ]

@@ -36,20 +36,15 @@ let (|UserLoggedIn|_|) = function
     | _ -> None
 
 let authUser (credentials: UserCredentials) = promise {
-    if String.IsNullOrEmpty credentials.Username then
-        return! failwithf "You need to fill in a username."
-    elif String.IsNullOrEmpty credentials.Password then
-        return! failwithf "You need to fill in a password."
-    else
-        let body = Encode.Auto.toString(0, credentials)
-        let props = [
-            Method HttpMethod.POST
-            Fetch.requestHeaders [ ContentType "application/json" ]
-            Body !^body
-        ]
-        let! res = Fetch.fetch Route.login props
-        let! txt = res.text()
-        return Decode.Auto.unsafeFromString<LoggedUser> txt |> (LoggedIn >> Completed)
+    let body = Encode.Auto.toString(0, credentials)
+    let props = [
+        Method HttpMethod.POST
+        Fetch.requestHeaders [ ContentType "application/json" ]
+        Body !^body
+    ]
+    let! res = Fetch.fetch Route.login props
+    let! txt = res.text()
+    return Decode.Auto.unsafeFromString<LoggedUser> txt |> (LoggedIn >> Completed)
 }
 
 let init () =
@@ -182,6 +177,10 @@ let render (state: State) (dispatch: Msg -> unit) =
                         prop.className "is-fullwidth"
                         if state.LoginAttempt = InProgress
                         then button.isLoading
+                        elif String.IsNullOrEmpty state.Credentials.Username
+                        then prop.disabled true
+                        elif String.IsNullOrEmpty state.Credentials.Password
+                        then prop.disabled true
                         else prop.onClick (fun _ -> dispatch (LogInClicked Pending))
                         prop.text "Login"
                     ]

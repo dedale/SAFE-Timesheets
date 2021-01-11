@@ -54,16 +54,34 @@ let getTeams login = async {
         return! team.GetManagedBy login |> Async.map List.ofSeq
     }
 
+let tryUser login = async {
+    use connection = new FileConnection(defaultFile)
+    let connectionF () = Connection.SqliteConnection connection.Value
+    let user = Queries.User connectionF
+    let! dbUser = user.GetSingleByLogin login
+    match dbUser with
+    | Some _ -> 
+        let! teams = getTeams login
+        return
+            { Username = login
+              Token = JsonWebToken.generateToken login.Value
+              IsAdmin = false
+              ManagedTeams = teams
+              } |> Ok
+    | _ -> return Error "Bad credentials"
+}
+
 let validate (credentials: Shared.UserCredentials) =
-    // TODO check that user exist in repository
-    // TODO ask db for managers
     match UserLogin.create credentials.Username with
     | Ok login ->
-        { Username = login
-          Token = JsonWebToken.generateToken credentials.Username
-          IsAdmin = credentials.Username = "admin"
-          ManagedTeams = getTeams login |> Async.RunSynchronously //credentials.Username.StartsWith("manager")
-        } |> Ok
+        if credentials.Username = "admin" then
+            { Username = login
+              Token = JsonWebToken.generateToken login.Value
+              IsAdmin = true
+              ManagedTeams = [] // TODO Teams for admin?
+              } |> Ok
+        else
+            tryUser login |> Async.RunSynchronously
     | Error m -> Error m
 
 /// Authenticates a user and returns a token in the HTTP body.
