@@ -685,8 +685,9 @@ let renderAddTeam (state: State) (dispatch: Msg -> unit) =
                 Bulma.button.button [
                     color.isInfo
                     prop.disabled (Option.isSome error)
-                    if state.TryAddTeam = InProgress then button.isLoading
-                    prop.onClick (fun _ -> dispatch (AddTeamClicked Pending))
+                    if state.TryAddTeam = InProgress
+                    then button.isLoading
+                    else prop.onClick (fun _ -> dispatch (AddTeamClicked Pending))
                     prop.text "Add Team"
                 ]
             ]
@@ -912,8 +913,9 @@ let renderAddTask (state: State) (dispatch: Msg -> unit) =
                 Bulma.button.button [
                     color.isInfo
                     prop.disabled (Option.isSome error)
-                    if state.TryAddTask = InProgress then button.isLoading
-                    prop.onClick (fun _ -> dispatch (AddTaskClicked Pending))
+                    if state.TryAddTask = InProgress
+                    then button.isLoading
+                    else prop.onClick (fun _ -> dispatch (AddTaskClicked Pending))
                     prop.text "Add Task"
                 ]
             ]

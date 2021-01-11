@@ -180,8 +180,9 @@ let render (state: State) (dispatch: Msg -> unit) =
                     Bulma.button.button [
                         color.isInfo
                         prop.className "is-fullwidth"
-                        if state.LoginAttempt = InProgress then button.isLoading
-                        prop.onClick (fun _ -> dispatch (LogInClicked Pending))
+                        if state.LoginAttempt = InProgress
+                        then button.isLoading
+                        else prop.onClick (fun _ -> dispatch (LogInClicked Pending))
                         prop.text "Login"
                     ]
                 ]
