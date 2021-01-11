@@ -292,19 +292,25 @@ module Queries =
             parameters (dict ["TeamId", box id])
         }
 
+        member __.Delete (id: UserId) = querySingleIntOptionAsync {
+            script "DELETE FROM User WHERE Id = @Id"
+            parameters (dict ["Id", box id])
+        }
+
     type Team (connectionF: unit -> Connection) =
 
         let querySingleIntOptionAsync = querySingleOptionAsync<int> connectionF
         let querySingleTeamOptionAsync = querySingleOptionAsync<Shared.Team> connectionF
         let querySeqTeamAsync = querySeqAsync<Shared.Team> connectionF
 
-        member __.New name =
+        member __.New name (managerId: UserId) =
             querySingleIntOptionAsync {
                 script """
                     INSERT INTO Team (Name) VALUES (@Name);
-                    SELECT last_insert_rowid();
+                    INSERT INTO TeamManager (TeamId, ManagerId) VALUES (last_insert_rowid(), @ManagerId);
+                    SELECT TeamId FROM TeamManager WHERE ROWID = last_insert_rowid();
                 """
-                parameters (dict ["Name", box name])
+                parameters (dict ["Name", box name; "ManagerId", box managerId])
             } |> Async.map (Option.map TeamId)
 
         member __.GetAll() = querySeqTeamAsync {
@@ -324,6 +330,11 @@ module Queries =
                 WHERE User.Login = @Login
             """
             parameters (dict ["Login", box manager])
+        }
+
+        member __.Delete (id: TeamId) = querySingleIntOptionAsync {
+            script "DELETE FROM Team WHERE Id = @Id"
+            parameters (dict ["Id", box id])
         }
 
     type TeamMember (connectionF: unit -> Connection) =
@@ -377,6 +388,11 @@ module Queries =
             script "SELECT * FROM CostCenter WHERE Name = @Name LIMIT 1"
             parameters (dict ["Name", box name])
         }
+
+        member __.Delete (id: CostCenterId) = querySingleIntOptionAsync {
+            script "DELETE FROM CostCenter WHERE Id = @Id"
+            parameters (dict ["Id", box id])
+        }
  
     type Task (connectionF: unit -> Connection) =
 
@@ -405,6 +421,21 @@ module Queries =
             script "SELECT * FROM Task WHERE Name = @Name LIMIT 1"
             parameters (dict ["Name", box name])
         }
+
+        member __.Delete (id: TaskId) = querySingleIntOptionAsync {
+            script "DELETE FROM Task WHERE Id = @Id"
+            parameters (dict ["Id", box id])
+        }
+
+        member __.NewTeamTask (id: TeamId) name (costCenterId: CostCenterId) =
+            querySingleIntOptionAsync {
+                script """
+                    INSERT INTO Task (Name, CostCenterID) VALUES (@Name, @CostCenterId);
+                    INSERT INTO TeamTask (TeamId, TaskId) VALUES (@TeamId, last_insert_rowid());
+                    SELECT TaskId FROM TeamTask WHERE ROWID = last_insert_rowid();
+                """
+                parameters (dict ["TeamId", box id; "Name", box name; "CostCenterId", box costCenterId])
+            } |> Async.map (Option.map TaskId)
 
         member __.GetByTeam (id: TeamId) = querySeqTaskAsync {
             script """
@@ -491,7 +522,7 @@ module Queries =
             let! user1Id = user.New "user1" "User 1" None None |> Async.map valueOrFail
 
             let team = Team connectionF
-            let! team1Id = team.New "Team 1" |> Async.map valueOrFail
+            let! team1Id = team.New "Team 1" manager1Id |> Async.map valueOrFail
 
             let teamMember = TeamMember connectionF
             let! _ = teamMember.New manager1Id team1Id
@@ -499,19 +530,11 @@ module Queries =
             let teamMember = TeamMember connectionF
             let! _ = teamMember.New user1Id team1Id
 
-            let teamManager = TeamManager connectionF
-            let! _ = teamManager.New team1Id manager1Id
-
             let costCenter = CostCenter connectionF
             let! costCenterId = costCenter.New "Cost Center 1" |> Async.map valueOrFail
 
             let task = Task connectionF
-            let! taskId = task.New "Task 1" costCenterId |> Async.map valueOrFail
-
-            let! teamTaskId = task.New "Team 1 Task 1" costCenterId |> Async.map valueOrFail
-
-            let teamTask = TeamTask connectionF
-            let! _ = teamTask.New team1Id teamTaskId
+            let! teamTaskId = task.NewTeamTask team1Id "Task 1" costCenterId |> Async.map valueOrFail
 
             ()
 

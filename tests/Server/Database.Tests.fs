@@ -38,9 +38,9 @@ type TempDb private (temp, connection, connectionF) =
                 x
             | _ -> failwith (sprintf "User '%s' not created" login)
     }
-    member __.NewTeam name = async {
+    member __.NewTeam name managerId = async {
         let team = Queries.Team connectionF
-        let! id = team.New name
+        let! id = team.New name managerId
         let! created = team.GetSingleByName name
         return
             match created with
@@ -71,6 +71,14 @@ type TempDb private (temp, connection, connectionF) =
                 x
             | _ -> failwith (sprintf "task '%s' not created" name)
     }
+    member _.NewTeamTask teamId name costCenterId = async {
+        let task = Queries.Task connectionF
+        let! created = task.NewTeamTask teamId name costCenterId
+        return
+            match created with
+            | Some x -> x
+            | _ -> failwith (sprintf "task '%s' not created" name)
+    }
 
 let user = testList "User" [
     testCaseAsync "All" <| async {
@@ -90,11 +98,22 @@ let team = testList "Team" [
     testCaseAsync "All" <| async {
         use db = new TempDb()
         do! db.Create()
-        let! team = db.NewTeam "R&D"
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "R&D" manager.Id
         Expect.equal team.Name "R&D" ""
 
         let! teams = (Queries.Team db.ConnectionF).GetAll()
         Expect.hasCountOf teams 1u (fun _ -> true) ""
+    }
+
+    testCaseAsync "Team tasks" <| async {
+        use db = new TempDb()
+        do! db.Create()
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "R&D" manager.Id
+        let! costCenter = db.NewCostCenter "Cost Center 1"
+        let! taskId = db.NewTeamTask team.Id (sprintf "Team %i Task 1" team.Id.Value) costCenter.Id
+        Expect.equal taskId.Value 1 ""
     }
 ]
 
@@ -103,7 +122,8 @@ let teamMember = testList "TeamMember" [
         use db = new TempDb()
         do! db.Create()
         let! john = db.NewUser "jdoe" "John DOE"
-        let! team = db.NewTeam "The Missing"
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "The Missing" manager.Id
 
         let teamMember = Queries.TeamMember db.ConnectionF
         let! _ = teamMember.New john.Id team.Id
@@ -118,7 +138,8 @@ let teamMember = testList "TeamMember" [
         use db = new TempDb()
         do! db.Create()
         let! john = db.NewUser "jdoe" "John DOE"
-        let! team = db.NewTeam "The Missing"
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "The Missing" manager.Id
 
         let teamMember = Queries.TeamMember db.ConnectionF
 
@@ -138,7 +159,8 @@ let teamManager = testList "TeamManager" [
     testCaseAsync "New team manager" <| async {
         use db = new TempDb()
         do! db.Create()
-        let! team = db.NewTeam "The Team"
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "The Team" manager.Id
         let! manager = db.NewUser "manager" "Mike ANAGER"
 
         let teamManager = Queries.TeamManager db.ConnectionF
@@ -153,7 +175,8 @@ let teamManager = testList "TeamManager" [
     testCaseAsync "Team & manager must exist" <| async {
         use db = new TempDb()
         do! db.Create()
-        let! team = db.NewTeam "The Team"
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "The Team" manager.Id
         let! manager = db.NewUser "manager" "Mike ANAGER"
 
         let teamManager = Queries.TeamManager db.ConnectionF
@@ -210,7 +233,8 @@ let teamTask = testList "TeamTask" [
     testCaseAsync "New team task" <| async {
         use db = new TempDb()
         do! db.Create()
-        let! team = db.NewTeam "The Team"
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "The Team" manager.Id
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
 
@@ -226,7 +250,8 @@ let teamTask = testList "TeamTask" [
     testCaseAsync "Team & task must exist" <| async {
         use db = new TempDb()
         do! db.Create()
-        let! team = db.NewTeam "The Team"
+        let! manager = db.NewUser "manager" "Mike ANAGER"
+        let! team = db.NewTeam "The Team" manager.Id
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
 

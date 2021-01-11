@@ -8,6 +8,7 @@ open FSharp.Data.Dapper
 open FSharp.Control.Tasks.ContextInsensitive
 open Giraffe
 open Microsoft.AspNetCore.Http
+open Saturn.ControllerHelpers
 
 let getCostCenters (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
@@ -18,17 +19,26 @@ let getCostCenters (next: HttpFunc) (ctx: HttpContext) = task {
 }
 
 let addCostCenter (next: HttpFunc) (ctx: HttpContext) = task {
-    // TODO db
+    use connection = new FileConnection(defaultFile)
+    let connectionF () = Connection.SqliteConnection connection.Value
+    let costCenter = Queries.CostCenter connectionF
     let! name = ctx.BindJsonAsync<string>()
-    let id = CostCenterId (name.GetHashCode())
-    let costCenter =
-        { CostCenter.Id = id
-          Name = name }
-    return! ctx.WriteJsonAsync costCenter
+    let! created = costCenter.New name
+    match created with
+    | Some id ->
+        let costCenter =
+            { CostCenter.Id = id
+              Name = name }
+        return! ctx.WriteJsonAsync costCenter
+    | _ ->
+        return! Response.internalError ctx ""
 }
 
 let delCostCenter (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
-    // TODO del from db
-    // TODO fail if used
+    use connection = new FileConnection(defaultFile)
+    let connectionF () = Connection.SqliteConnection connection.Value
+    let costCenter = Queries.CostCenter connectionF
+    let! _ = CostCenterId id |> costCenter.Delete
+    // TODO fail if used (handled by constraints?)
     return! ctx.WriteJsonAsync ""
 }
