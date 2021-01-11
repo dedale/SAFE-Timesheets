@@ -2,6 +2,7 @@
 
 open Shared
 
+open Browser.Types
 open Elmish
 open Fable.Core.JsInterop
 open Fable.FontAwesome
@@ -663,15 +664,23 @@ let renderAddTeam (state: State) (dispatch: Msg -> unit) =
                 Bulma.control.div [
                     control.hasIconsLeft
                     prop.children [
-                        Bulma.select (
-                            state.Users
-                            |> List.map (fun u ->
-                                Html.option [
-                                    prop.onClick (fun _ -> NewTeamManagerChanged u.Id |> dispatch)
-                                    prop.text u.Name
-                                ]
+                        // https://stackoverflow.com/a/55375604/305023
+                        Bulma.select [
+                            match state.NewTeamManagerId with
+                            | Some id -> prop.value id.Value
+                            | _ -> ()
+                            prop.onChange (fun (ev: Event) -> ev.target?value |> UserId |> NewTeamManagerChanged |> dispatch)
+                            prop.children (
+                                state.Users
+                                |> List.map (fun u ->
+                                    Html.option [
+                                        prop.value u.Id.Value
+                                        //prop.onClick (fun _ -> NewTeamManagerChanged u.Id |> dispatch)
+                                        prop.text u.Name
+                                    ]
+                                )
                             )
-                        )
+                        ]
                         Bulma.icon [
                             icon.isSmall; icon.isLeft
                             prop.children [
@@ -891,15 +900,22 @@ let renderAddTask (state: State) (dispatch: Msg -> unit) =
                 Bulma.control.div [
                     control.hasIconsLeft
                     prop.children [
-                        Bulma.select (
-                            state.CostCenters
-                            |> List.map (fun cc ->
-                                Html.option [
-                                    prop.onClick (fun _ -> NewTaskCostCenterChanged cc.Id |> dispatch)
-                                    prop.text cc.Name
-                                ]
+                        // https://stackoverflow.com/a/55375604/305023
+                        Bulma.select [
+                            match state.NewTaskCostCenterId with
+                            | Some id -> prop.defaultValue id.Value
+                            | _ -> ()
+                            prop.onChange (fun (ev: Event) -> ev.target?value |> CostCenterId |> NewTaskCostCenterChanged |> dispatch)
+                            prop.children (
+                                state.CostCenters
+                                |> List.map (fun cc ->
+                                    Html.option [
+                                        prop.value cc.Id.Value
+                                        prop.text cc.Name
+                                    ]
+                                )
                             )
-                        )
+                        ]
                         Bulma.icon [
                             icon.isSmall; icon.isLeft
                             prop.children [
