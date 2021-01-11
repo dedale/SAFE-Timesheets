@@ -8,7 +8,6 @@
   <ItemGroup>
     <Compile Include="FileSystem.Tests.fs" />
     <Compile Include="Database.Tests.fs" />
-    <Compile Include="Server.Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

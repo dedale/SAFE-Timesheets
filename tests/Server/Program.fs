@@ -10,7 +10,6 @@ let all =
         [
             FileSystem.Tests.all
             Database.Tests.all
-            Server.Tests.all
         ]
 
 [<EntryPoint>]
