@@ -41,6 +41,8 @@ let webApp =
         get Route.task Handlers.Task.getTasks
         post Route.task Handlers.Task.addTask
         deletef "/api/tasks/%i" Handlers.Task.delTask
+
+        getf "/api/years/%i" Handlers.Year.getWeeks
     }
 
 let app =

@@ -14,6 +14,7 @@
     <Compile Include="Handlers\Team.fs" />
     <Compile Include="Handlers\CostCenter.fs" />
     <Compile Include="Handlers\Task.fs" />
+    <Compile Include="Handlers\Year.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
   <ItemGroup>

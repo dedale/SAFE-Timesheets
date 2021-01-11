@@ -86,6 +86,10 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
             let loginState, loginCmd = Pages.Login.update loginMsg loginState
             { state with CurrentPage = Page.Login loginState }, Cmd.map LoginMsg loginCmd
 
+    | HomeMsg homeMsg, Page.Home homeState ->
+        let homeState, homeCmd = Pages.Home.update homeMsg homeState
+        { state with CurrentPage = Page.Home homeState }, Cmd.map HomeMsg homeCmd
+
     | AdminMsg adminMsg, Page.Admin adminState ->
         let adminState, adminCmd = Pages.Admin.update adminMsg adminState
         { state with CurrentPage = Page.Admin adminState }, Cmd.map AdminMsg adminCmd

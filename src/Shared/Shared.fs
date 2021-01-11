@@ -144,6 +144,7 @@ module YearNumber =
     // 2007-01-01 is a Monday
     let min = 2007
     let max = 2050
+    let current = YearNumber DateTime.UtcNow.Year
     let create year =
         if year < min then
             Error (sprintf "Year should be >= %i" min)
@@ -151,6 +152,11 @@ module YearNumber =
             Error (sprintf "Year should be <= %i" max)
         else
             YearNumber year |> Ok
+    let value (YearNumber y) = y
+    let route (YearNumber y) = sprintf "/api/years/%i" y
+
+type YearNumber with
+    member x.Value = YearNumber.value x
 
 type MonthNumber = private MonthNumber of int
 
@@ -268,6 +274,34 @@ module Week =
         | Ok M, Ok F -> M, F
         | Error m, _ -> failwith m
         | _, Error m -> failwith m
+
+// List of full? weeks grouped by months
+type MonthWeeks = private Weeks of (MonthNumber * (Week * bool option) list) list
+
+module MonthWeeks =
+    let create year (tryIsFull: Week -> bool option) =
+        let first = Week.first year
+        let last = Week.last year
+        let monthWeeks =
+            { first.Number .. last.Number }
+            |> Seq.map (fun n ->
+                let week = Week.create n year
+                match week with
+                | Ok w ->
+                    w, Week.range w |> fst
+                | Error m -> failwith m)
+            |> Seq.groupBy (fun (_, date) ->
+                let d = SafeDate.value date
+                DateTime(d.Year, d.Month, 1))
+            |> Seq.map (fun (month1st, weeks) ->
+                MonthNumber.ofDate month1st,
+                Seq.map fst weeks
+                |> Seq.map (fun w -> w, tryIsFull w)
+                |> List.ofSeq)
+            |> List.ofSeq
+        Weeks monthWeeks
+
+    let value (Weeks weeks) = weeks
 
 type WorkDays = private WorkDays of float
 
