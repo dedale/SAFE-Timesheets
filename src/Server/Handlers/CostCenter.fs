@@ -25,20 +25,20 @@ let addCostCenter (next: HttpFunc) (ctx: HttpContext) = task {
     let! name = ctx.BindJsonAsync<string>()
     let! created = costCenter.New name
     match created with
-    | Some id ->
+    | Some costCenterId ->
         let costCenter =
-            { CostCenter.Id = id
+            { CostCenter.Id = costCenterId
               Name = name }
         return! ctx.WriteJsonAsync costCenter
     | _ ->
         return! Response.internalError ctx ""
 }
 
-let delCostCenter (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
+let delCostCenter (costCenterId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let costCenter = Queries.CostCenter connectionF
-    let! _ = CostCenterId id |> costCenter.Delete
+    let! _ = CostCenterId costCenterId |> costCenter.Delete
     // TODO fail if used (handled by constraints?)
     return! ctx.WriteJsonAsync ""
 }

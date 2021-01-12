@@ -31,7 +31,7 @@ module TypeHandlers =
     type UserIdHandler() =
         inherit SqlMapper.TypeHandler<UserId>()
 
-        override __.SetValue(param, id) = param.Value <- id.Value
+        override __.SetValue(param, userId) = param.Value <- userId.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> UserId
 
@@ -40,7 +40,7 @@ module TypeHandlers =
     type TeamIdHandler() =
         inherit SqlMapper.TypeHandler<TeamId>()
 
-        override __.SetValue(param, id) = param.Value <- id.Value
+        override __.SetValue(param, teamId) = param.Value <- teamId.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> TeamId
 
@@ -49,7 +49,7 @@ module TypeHandlers =
     type TaskIdHandler() =
         inherit SqlMapper.TypeHandler<TaskId>()
 
-        override __.SetValue(param, id) = param.Value <- id.Value
+        override __.SetValue(param, taskId) = param.Value <- taskId.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> TaskId
 
@@ -58,7 +58,7 @@ module TypeHandlers =
     type CostCenterIdHandler() =
         inherit SqlMapper.TypeHandler<CostCenterId>()
 
-        override __.SetValue(param, id) = param.Value <- id.Value
+        override __.SetValue(param, costCenterId) = param.Value <- costCenterId.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> CostCenterId
 
@@ -67,7 +67,7 @@ module TypeHandlers =
     type ActivityIdHandler() =
         inherit SqlMapper.TypeHandler<ActivityId>()
 
-        override __.SetValue(param, id) = param.Value <- id.Value
+        override __.SetValue(param, activityId) = param.Value <- activityId.Value
 
         override __.Parse(value: obj) = value :?> Int64 |> int |> ActivityId
 
@@ -283,18 +283,18 @@ module Queries =
             parameters (dict ["Login", box login])
         }
 
-        member __.GetByTeam (id: TeamId) = querySeqUserAsync {
+        member __.GetByTeam (teamId: TeamId) = querySeqUserAsync {
             script """
                 SELECT User.* FROM User
-                INNER JOIN TeamMember ON User.id = TeamMember.UserId
+                INNER JOIN TeamMember ON User.Id = TeamMember.UserId
                 WHERE TeamMember.TeamId = @TeamId
             """
-            parameters (dict ["TeamId", box id])
+            parameters (dict ["TeamId", box teamId])
         }
 
-        member __.Delete (id: UserId) = querySingleIntOptionAsync {
+        member __.Delete (userId: UserId) = querySingleIntOptionAsync {
             script "DELETE FROM User WHERE Id = @Id"
-            parameters (dict ["Id", box id])
+            parameters (dict ["Id", box userId])
         }
 
     type Team (connectionF: unit -> Connection) =
@@ -332,9 +332,9 @@ module Queries =
             parameters (dict ["Login", box manager])
         }
 
-        member __.Delete (id: TeamId) = querySingleIntOptionAsync {
+        member __.Delete (teamId: TeamId) = querySingleIntOptionAsync {
             script "DELETE FROM Team WHERE Id = @Id"
-            parameters (dict ["Id", box id])
+            parameters (dict ["Id", box teamId])
         }
 
     type TeamMember (connectionF: unit -> Connection) =
@@ -389,9 +389,9 @@ module Queries =
             parameters (dict ["Name", box name])
         }
 
-        member __.Delete (id: CostCenterId) = querySingleIntOptionAsync {
+        member __.Delete (costCenterd: CostCenterId) = querySingleIntOptionAsync {
             script "DELETE FROM CostCenter WHERE Id = @Id"
-            parameters (dict ["Id", box id])
+            parameters (dict ["Id", box costCenterd])
         }
  
     type Task (connectionF: unit -> Connection) =
@@ -412,7 +412,7 @@ module Queries =
         member __.GetCommon() = querySeqTaskAsync {
             script """
                 SELECT Task.* FROM Task
-                LEFT OUTER JOIN TeamTask ON Task.id = TeamTask.Taskid
+                LEFT OUTER JOIN TeamTask ON Task.Id = TeamTask.Taskid
                 WHERE TeamTask.TaskId IS NULL
             """
         }
@@ -422,28 +422,28 @@ module Queries =
             parameters (dict ["Name", box name])
         }
 
-        member __.Delete (id: TaskId) = querySingleIntOptionAsync {
+        member __.Delete (taskId: TaskId) = querySingleIntOptionAsync {
             script "DELETE FROM Task WHERE Id = @Id"
-            parameters (dict ["Id", box id])
+            parameters (dict ["Id", box taskId])
         }
 
-        member __.NewTeamTask (id: TeamId) name (costCenterId: CostCenterId) =
+        member __.NewTeamTask (teamId: TeamId) name (costCenterId: CostCenterId) =
             querySingleIntOptionAsync {
                 script """
                     INSERT INTO Task (Name, CostCenterID) VALUES (@Name, @CostCenterId);
                     INSERT INTO TeamTask (TeamId, TaskId) VALUES (@TeamId, last_insert_rowid());
                     SELECT TaskId FROM TeamTask WHERE ROWID = last_insert_rowid();
                 """
-                parameters (dict ["TeamId", box id; "Name", box name; "CostCenterId", box costCenterId])
+                parameters (dict ["TeamId", box teamId; "Name", box name; "CostCenterId", box costCenterId])
             } |> Async.map (Option.map TaskId)
 
-        member __.GetByTeam (id: TeamId) = querySeqTaskAsync {
+        member __.GetByTeam (teamId: TeamId) = querySeqTaskAsync {
             script """
                 SELECT Task.* FROM Task
-                INNER JOIN TeamTask ON Task.id = TeamTask.Taskid
+                INNER JOIN TeamTask ON Task.Id = TeamTask.Taskid
                 WHERE TeamTask.TeamId = @TeamId
             """
-            parameters (dict ["TeamId", box id])
+            parameters (dict ["TeamId", box teamId])
         }
 
     type TeamTask (connectionF: unit -> Connection) =
@@ -495,9 +495,9 @@ module Queries =
                 parameters (dict ["UserId", box userId; "Monday", box Monday; "Friday", box Friday])
             }
 
-        member __.Delete id = querySingleIntOptionAsync {
+        member __.Delete activityId = querySingleIntOptionAsync {
             script "DELETE FROM Activity WHERE Id = @Id"
-            parameters (dict ["Id", box id])
+            parameters (dict ["Id", box activityId])
         }
 
     let init() = async {

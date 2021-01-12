@@ -124,22 +124,22 @@ let getAllJson route = promise {
 }
 
 let loadUsers() = promise {
-    let! txt = getAllJson Route.user
+    let! txt = getAllJson Route.users
     return Decode.Auto.unsafeFromString<User list> txt |> Ok
 }
 
 let loadTeams() = promise {
-    let! txt = getAllJson Route.team
+    let! txt = getAllJson Route.teams
     return Decode.Auto.unsafeFromString<Team list> txt |> Ok
 }
 
 let loadCostCenters() = promise {
-    let! txt = getAllJson Route.costCenter
+    let! txt = getAllJson Route.costCenters
     return Decode.Auto.unsafeFromString<CostCenter list> txt |> Ok
 }
 
 let loadTasks() = promise {
-    let! txt = getAllJson Route.task
+    let! txt = getAllJson Route.tasks
     return Decode.Auto.unsafeFromString<Task list> txt |> Ok
 }
 
@@ -150,7 +150,7 @@ let addUser (username: string) = promise {
         Fetch.requestHeaders [ ContentType "application/json" ]
         Body !^body
     ]
-    let! res = Fetch.fetch Route.user props
+    let! res = Fetch.fetch Route.users props
     let! txt = res.text()
     return Decode.Auto.unsafeFromString<User> txt |> Ok
 }
@@ -170,7 +170,7 @@ let addTeam (name: string) (managerId: UserId) = promise {
         Fetch.requestHeaders [ ContentType "application/json" ]
         Body !^body
     ]
-    let! res = Fetch.fetch Route.team props
+    let! res = Fetch.fetch Route.teams props
     let! txt = res.text()
     return Decode.Auto.unsafeFromString<Team> txt |> Ok
 }
@@ -190,7 +190,7 @@ let addCostCenter (name: string) = promise {
         Fetch.requestHeaders [ ContentType "application/json" ]
         Body !^body
     ]
-    let! res = Fetch.fetch Route.costCenter props
+    let! res = Fetch.fetch Route.costCenters props
     let! txt = res.text()
     return Decode.Auto.unsafeFromString<CostCenter> txt |> Ok
 }
@@ -210,7 +210,7 @@ let addTask (name: string) (costCenterId: CostCenterId) = promise {
         Fetch.requestHeaders [ ContentType "application/json" ]
         Body !^body
     ]
-    let! res = Fetch.fetch Route.task props
+    let! res = Fetch.fetch Route.tasks props
     let! txt = res.text()
     return Decode.Auto.unsafeFromString<Task> txt |> Ok
 }

@@ -25,9 +25,9 @@ let addTask (next: HttpFunc) (ctx: HttpContext) = task {
     let task = Queries.Task connectionF
     let! created = task.New name costCenterId
     match created with
-    | Some id ->
+    | Some taskId ->
         let task =
-            { Task.Id = id
+            { Task.Id = taskId
               Name = name
               CostCenterId = costCenterId }
         return! ctx.WriteJsonAsync task
@@ -35,11 +35,11 @@ let addTask (next: HttpFunc) (ctx: HttpContext) = task {
         return! Response.internalError ctx ""
 }
 
-let delTask (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
+let delTask (taskId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let task = Queries.Task connectionF
-    let! _ = TaskId id |> task.Delete
+    let! _ = TaskId taskId |> task.Delete
     // TODO fail if used (handled by constraints?)
     return! ctx.WriteJsonAsync ""
 }

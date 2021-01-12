@@ -17,12 +17,12 @@ let webApp =
     router {
         post Route.login Handlers.Login.login
 
-        get Route.user Handlers.User.getUsers
-        post Route.user Handlers.User.addUser
+        get Route.users Handlers.User.getUsers
+        post Route.users Handlers.User.addUser
         deletef "/api/users/%i" Handlers.User.delUser
 
-        get Route.team Handlers.Team.getTeams
-        post Route.team Handlers.Team.addTeam
+        get Route.teams Handlers.Team.getTeams
+        post Route.teams Handlers.Team.addTeam
         deletef "/api/teams/%i" Handlers.Team.delTeam
 
         getf "/api/teams/%i/users" Handlers.Team.getTeamUsers
@@ -31,15 +31,15 @@ let webApp =
 
         // https://blog.restcase.com/5-basic-rest-api-design-guidelines/
         // https://blog.octo.com/en/design-a-rest-api/#case_uri
-        get Route.costCenterCamel Handlers.CostCenter.getCostCenters
-        get Route.costCenterSpinal Handlers.CostCenter.getCostCenters
-        post Route.costCenterCamel Handlers.CostCenter.addCostCenter
-        post Route.costCenterSpinal Handlers.CostCenter.addCostCenter
+        get Route.costCentersCamel Handlers.CostCenter.getCostCenters
+        get Route.costCentersSpinal Handlers.CostCenter.getCostCenters
+        post Route.costCentersCamel Handlers.CostCenter.addCostCenter
+        post Route.costCentersSpinal Handlers.CostCenter.addCostCenter
         deletef "/api/cost_centers/%i" Handlers.CostCenter.delCostCenter
         deletef "/api/cost-centers/%i" Handlers.CostCenter.delCostCenter
 
-        get Route.task Handlers.Task.getTasks
-        post Route.task Handlers.Task.addTask
+        get Route.tasks Handlers.Task.getTasks
+        post Route.tasks Handlers.Task.addTask
         deletef "/api/tasks/%i" Handlers.Task.delTask
 
         getf "/api/years/%i" Handlers.Year.getWeeks

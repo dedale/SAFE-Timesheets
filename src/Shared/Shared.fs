@@ -2,12 +2,12 @@ module Shared
 
 module Route =
     let login = "/api/login"
-    let user = "/api/users"
-    let team = "/api/teams"
-    let costCenterCamel = "/api/cost_centers"
-    let costCenterSpinal = "/api/cost-centers"
-    let costCenter = costCenterCamel
-    let task = "/api/tasks"
+    let users = "/api/users"
+    let teams = "/api/teams"
+    let costCentersCamel = "/api/cost_centers"
+    let costCentersSpinal = "/api/cost-centers"
+    let costCenters = costCentersCamel
+    let tasks = "/api/tasks"
 
 open System
 
@@ -45,8 +45,9 @@ type UserLogin with
 type UserId = UserId of int
 
 module UserId =
-    let value (UserId id) = id
-    let route (UserId id) = sprintf "/api/users/%i" id
+    let value (UserId i) = i
+    let route (UserId i) = sprintf "/api/users/%i" i
+    let teamRoute (UserId i) = sprintf "/api/users/%i/teams" i
 
 type UserId with
     member x.Value = UserId.value x
@@ -64,10 +65,10 @@ type User = {
 type TeamId = TeamId of int
 
 module TeamId =
-    let value (TeamId id) = id
-    let route (TeamId id) = sprintf "/api/teams/%i" id
-    let userRoute (TeamId id) = sprintf "/api/teams/%i/users" id
-    let taskRoute (TeamId id) = sprintf "/api/teams/%i/tasks" id
+    let value (TeamId i) = i
+    let route (TeamId i) = sprintf "/api/teams/%i" i
+    let userRoute (TeamId i) = sprintf "/api/teams/%i/users" i
+    let taskRoute (TeamId i) = sprintf "/api/teams/%i/tasks" i
 
 type TeamId with
     member x.Value = TeamId.value x
@@ -87,12 +88,12 @@ type LoggedUser =
 type CostCenterId = CostCenterId of int
 
 module CostCenterId =
-    let value (CostCenterId id) = id
+    let value (CostCenterId i) = i
 
     // https://blog.restcase.com/5-basic-rest-api-design-guidelines/
     // https://blog.octo.com/en/design-a-rest-api/#case_uri
-    let routeCamel (CostCenterId id) = sprintf "/api/cost_centers/%i" id
-    let routeSpinal (CostCenterId id) = sprintf "/api/cost-centers/%i" id
+    let routeCamel (CostCenterId i) = sprintf "/api/cost_centers/%i" i
+    let routeSpinal (CostCenterId i) = sprintf "/api/cost-centers/%i" i
     let route = routeCamel
 
 type CostCenterId with
@@ -107,8 +108,8 @@ type CostCenter = {
 type TaskId = TaskId of int
 
 module TaskId =
-    let value (TaskId id) = id
-    let route (TaskId id) = sprintf "/api/tasks/%i" id
+    let value (TaskId i) = i
+    let route (TaskId i) = sprintf "/api/tasks/%i" i
 
 type TaskId with
     member x.Value = TaskId.value x
@@ -322,7 +323,7 @@ type WorkDays with
 type ActivityId = ActivityId of int
 
 module ActivityId =
-    let value (ActivityId id) = id
+    let value (ActivityId i) = i
 
 type ActivityId with
     member x.Value = ActivityId.value x

@@ -72,9 +72,9 @@ let validate (username: string) = task {
             let user = Queries.User connectionF
             let! created = user.New login full None None
             match created with
-            | Some id ->
+            | Some userId ->
                 return Ok
-                    { User.Id = id
+                    { User.Id = userId
                       Name = full
                       Login = login }
             | None -> return Error "Failed to create user"
@@ -93,11 +93,11 @@ let addUser (next: HttpFunc) (ctx: HttpContext) = task {
             Response.badRequest ctx (sprintf "Invalid user '%s': %s." username m)
 }
 
-let delUser (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
+let delUser (userId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let user = Queries.User connectionF
-    let! _ = UserId id |> user.Delete
+    let! _ = UserId userId |> user.Delete
     // TODO fail if used (handled by constraints?)
     return! ctx.WriteJsonAsync ""
 }

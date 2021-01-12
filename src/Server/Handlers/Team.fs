@@ -25,50 +25,50 @@ let addTeam (next: HttpFunc) (ctx: HttpContext) = task {
     let team = Queries.Team connectionF
     let! created = team.New teamName managerId
     match created with
-    | Some id ->
+    | Some teamId ->
         let team =
-            { Team.Id = id
+            { Team.Id = teamId
               Name = teamName }
         return! ctx.WriteJsonAsync team
     | _ ->
         return! Response.internalError ctx ""
 }
 
-let delTeam (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
+let delTeam (teamId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let team = Queries.Team connectionF
-    let! _ = TeamId id |> team.Delete
+    let! _ = TeamId teamId |> team.Delete
     // TODO fail if team has users
     return! ctx.WriteJsonAsync ""
 }
 
-let getTeamUsers (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
+let getTeamUsers (teamId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let user = Queries.User connectionF
-    let users = TeamId id |> user.GetByTeam |> Async.map List.ofSeq |> Async.RunSynchronously
+    let users = TeamId teamId |> user.GetByTeam |> Async.map List.ofSeq |> Async.RunSynchronously
     return! ctx.WriteJsonAsync users
 }
 
-let getTeamTasks (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
+let getTeamTasks (teamId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let task = Queries.Task connectionF
-    let tasks = TeamId id |> task.GetByTeam |> Async.map List.ofSeq |> Async.RunSynchronously
+    let tasks = TeamId teamId |> task.GetByTeam |> Async.map List.ofSeq |> Async.RunSynchronously
     return! ctx.WriteJsonAsync tasks
 }
 
-let addTeamTask (id: int) (next: HttpFunc) (ctx: HttpContext) = task {
+let addTeamTask (teamId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     let! (name, costCenterId) = ctx.BindJsonAsync<string * CostCenterId>()
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
     let task = Queries.Task connectionF
-    let! created = task.NewTeamTask (TeamId id) name costCenterId
+    let! created = task.NewTeamTask (TeamId teamId) name costCenterId
     match created with
-    | Some id ->
+    | Some taskId ->
         let task =
-            { Task.Id = id
+            { Task.Id = taskId
               Name = name
               CostCenterId = costCenterId }
         return! ctx.WriteJsonAsync task
