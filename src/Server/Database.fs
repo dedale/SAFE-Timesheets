@@ -160,7 +160,7 @@ module Types =
         UserId: UserId
         TaskId: TaskId
         Days: WorkDays
-        Comment: string option
+        Comment: string
         // To quickly find incomplete weeks: sum days by year by week
         Year: int
         Week: int
@@ -191,7 +191,7 @@ module Queries =
                     UserId INTEGER NOT NULL,
                     TaskId INTEGER NOT NULL,
                     Days FLOAT NOT NULL,
-                    Comment VARCHAR(255) NULL,
+                    Comment VARCHAR(255) NOT NULL,
                     Year INTEGER NOT NULL,
                     Week INTEGER NOT NULL,
                     FOREIGN KEY(UserId) REFERENCES User(Id),
@@ -322,14 +322,24 @@ module Queries =
             parameters (dict ["Name", box name])
         }
 
-        member __.GetManagedBy (manager: UserLogin) = querySeqTeamAsync {
+        member __.GetManagedBy (manager: UserId) = querySeqTeamAsync {
             script """
                 SELECT Team.* FROM Team
                 INNER JOIN TeamManager ON Team.Id = TeamManager.TeamId
                 INNER JOIN User ON TeamManager.ManagerId = User.Id
-                WHERE User.Login = @Login
+                WHERE User.Id = @UserId
             """
-            parameters (dict ["Login", box manager])
+            parameters (dict ["UserId", box manager])
+        }
+
+        member __.GetTeams (userId: UserId) = querySeqTeamAsync {
+            script """
+                SELECT Team.* FROM Team
+                INNER JOIN TeamMember ON Team.Id = TeamMember.TeamId
+                INNER JOIN User ON TeamMember.UserId = User.Id
+                WHERE User.Id = @UserId
+            """
+            parameters (dict ["UserId", box userId])
         }
 
         member __.Delete (teamId: TeamId) = querySingleIntOptionAsync {
@@ -465,7 +475,7 @@ module Queries =
         let querySingleIntOptionAsync = querySingleOptionAsync<int> connectionF
         let querySeqActivityAsync = querySeqAsync<Types.Activity> connectionF
 
-        member __.New date (userId: UserId) (taskId: TaskId) days comment =
+        member __.New (userId: UserId) date (taskId: TaskId) days comment =
             let week = Week.ofDate date
             querySingleIntOptionAsync {
                 script """
@@ -482,13 +492,13 @@ module Queries =
                     "Year", box week.Year
                     "Week", box week.Number
                 ])
-            }
+            } |> Async.map (Option.map ActivityId)
 
         member __.GetAll() = querySeqActivityAsync {
             script "SELECT * FROM Activity"
         }
 
-        member __.Get (userId: UserId) (week: Week) =
+        member __.GetWeek (userId: UserId) (week: Week) =
             let Monday, Friday = Week.range week
             querySeqActivityAsync {
                 script "SELECT * FROM Activity WHERE UserId = @UserId AND Date >= @Monday AND DATE <= @Friday"
@@ -516,6 +526,8 @@ module Queries =
             let! _ = schema.CreateTables()
 
             let user = User connectionF
+            let! _ = user.New "admin" "Administrator" None None |> Async.map valueOrFail
+
             let! manager1Id = user.New "manager1" "Manager 1" None None |> Async.map valueOrFail
 
             let user = User connectionF
@@ -534,7 +546,9 @@ module Queries =
             let! costCenterId = costCenter.New "Cost Center 1" |> Async.map valueOrFail
 
             let task = Task connectionF
-            let! teamTaskId = task.NewTeamTask team1Id "Task 1" costCenterId |> Async.map valueOrFail
+            let! _ = task.New "Task 1" costCenterId |> Async.map valueOrFail
+
+            let! _ = task.NewTeamTask team1Id "Team 1 Task 1" costCenterId |> Async.map valueOrFail
 
             ()
 

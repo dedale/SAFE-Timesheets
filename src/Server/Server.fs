@@ -21,6 +21,8 @@ let webApp =
         post Route.users Handlers.User.addUser
         deletef "/api/users/%i" Handlers.User.delUser
 
+        //getf "/api/users/%i/teams" Handlers.User.getTeams
+
         get Route.teams Handlers.Team.getTeams
         post Route.teams Handlers.Team.addTeam
         deletef "/api/teams/%i" Handlers.Team.delTeam
@@ -43,6 +45,9 @@ let webApp =
         deletef "/api/tasks/%i" Handlers.Task.delTask
 
         getf "/api/years/%i" Handlers.Year.getWeeks
+
+        getf "/api/users/%i/activities/%i/%i" Handlers.Activity.getActivities
+        post Route.activities Handlers.Activity.addActivity
     }
 
 let app =

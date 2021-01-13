@@ -279,14 +279,14 @@ let activity = testList "Activity" [
         let activity = Queries.Activity db.ConnectionF
         let today = SafeDate.today
         let comment = "Rewrite with F#, Fable, SAFE-Stack, Expecto, Dapper, etc."
-        let! _ = activity.New today user.Id task.Id 1. comment
+        let! _ = activity.New user.Id today task.Id 1. comment
         let! activities = activity.GetAll()
         Expect.hasCountOf activities 1u (fun _ -> true) ""
         let first = activities |> Seq.head
         Expect.equal first.Date today ""
         Expect.equal first.TaskId task.Id ""
         Expect.equal first.UserId user.Id ""
-        Expect.equal first.Comment (Some comment) ""
+        Expect.equal first.Comment comment ""
     }
 
     testCaseAsync "Get week" <| async {
@@ -298,26 +298,26 @@ let activity = testList "Activity" [
         let! task = db.NewTask "Timesheet" costCenter.Id
         let activity = Queries.Activity db.ConnectionF
         let prevFriday = DateTime(2021, 1, 1) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New prevFriday user.Id task.Id 1. "Previous week"
+        let! _ = activity.New user.Id prevFriday task.Id 1. "Previous week"
         let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New Monday user.Id task.Id 1. "Monday"
+        let! _ = activity.New user.Id Monday task.Id 1. "Monday"
         let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New Monday otherUser.Id task.Id 1. "Monday other user"
+        let! _ = activity.New otherUser.Id Monday task.Id 1. "Monday other user"
         let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New Friday user.Id task.Id 1. "Friday"
+        let! _ = activity.New user.Id Friday task.Id 1. "Friday"
         let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New Friday otherUser.Id task.Id 1. "Friday other user"
+        let! _ = activity.New otherUser.Id Friday task.Id 1. "Friday other user"
         let nextMonday = DateTime(2021, 1, 11) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New nextMonday user.Id task.Id 1. "Next week"
+        let! _ = activity.New user.Id nextMonday task.Id 1. "Next week"
         let week =
             match Week.create 1 2021 with
             | Ok w -> w
             | Error m -> failtest m
-        let! activities = activity.Get user.Id week
+        let! activities = activity.GetWeek user.Id week
         let sorted = Array.ofSeq activities |> Array.sortBy (fun a -> a.Date.Value)
         Expect.hasCountOf sorted 2u (fun _ -> true) "Should take only select week & user"
-        Expect.equal (sorted.[0].Comment) (Some "Monday") ""
-        Expect.equal (sorted.[1].Comment) (Some "Friday") ""
+        Expect.equal (sorted.[0].Comment) "Monday" ""
+        Expect.equal (sorted.[1].Comment) "Friday" ""
     }
 
     testCaseAsync "Delete activity" <| async {
@@ -328,17 +328,17 @@ let activity = testList "Activity" [
         let! task = db.NewTask "Timesheet" costCenter.Id
         let activity = Queries.Activity db.ConnectionF
         let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New Monday user.Id task.Id 1. "Monday"
+        let! _ = activity.New user.Id Monday task.Id 1. "Monday"
         let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New Friday user.Id task.Id 1. "Friday"
+        let! _ = activity.New user.Id Friday task.Id 1. "Friday"
         let week =
             match Week.create 1 2021 with
             | Ok w -> w
             | Error m -> failtest m
-        let! activities = activity.Get user.Id week
+        let! activities = activity.GetWeek user.Id week
         let first = activities |> Seq.head
         let! _ = activity.Delete first.Id
-        let! activities = activity.Get user.Id week
+        let! activities = activity.GetWeek user.Id week
         Expect.hasCountOf activities 1u (fun _ -> true) ""
     }
 ]

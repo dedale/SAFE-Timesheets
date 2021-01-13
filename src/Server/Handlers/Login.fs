@@ -47,12 +47,14 @@ open Giraffe
 open Microsoft.AspNetCore.Http
 open Saturn.ControllerHelpers
 
-let getTeams login = async {
-        use connection = new FileConnection(defaultFile)
-        let connectionF () = Connection.SqliteConnection connection.Value
-        let team = Queries.Team connectionF
-        return! team.GetManagedBy login |> Async.map List.ofSeq
-    }
+let getTeams userId = async {
+    use connection = new FileConnection(defaultFile)
+    let connectionF () = Connection.SqliteConnection connection.Value
+    let team = Queries.Team connectionF
+    let! teams = team.GetTeams userId |> Async.map List.ofSeq
+    let! managed = team.GetManagedBy userId |> Async.map List.ofSeq
+    return teams, managed
+}
 
 let tryUser login = async {
     use connection = new FileConnection(defaultFile)
@@ -60,28 +62,22 @@ let tryUser login = async {
     let user = Queries.User connectionF
     let! dbUser = user.GetSingleByLogin login
     match dbUser with
-    | Some _ -> 
-        let! teams = getTeams login
+    | Some u -> 
+        let! (teams, managed) = getTeams u.Id
         return
-            { Username = login
+            { LoggedUser.Id = u.Id
+              Username = login
               Token = JsonWebToken.generateToken login.Value
-              IsAdmin = false
-              ManagedTeams = teams
+              IsAdmin = login.Value = "admin"
+              Teams = teams
+              ManagedTeams = managed
               } |> Ok
     | _ -> return Error "Bad credentials"
 }
 
 let validate (credentials: Shared.UserCredentials) =
     match UserLogin.create credentials.Username with
-    | Ok login ->
-        if credentials.Username = "admin" then
-            { Username = login
-              Token = JsonWebToken.generateToken login.Value
-              IsAdmin = true
-              ManagedTeams = [] // TODO Teams for admin?
-              } |> Ok
-        else
-            tryUser login |> Async.RunSynchronously
+    | Ok login -> tryUser login |> Async.RunSynchronously
     | Error m -> Error m
 
 /// Authenticates a user and returns a token in the HTTP body.

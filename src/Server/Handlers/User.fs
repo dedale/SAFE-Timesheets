@@ -20,6 +20,14 @@ let getUsers (next: HttpFunc) (ctx: HttpContext) = task {
     return! ctx.WriteJsonAsync users
 }
 
+//let getTeams (userId: int) (next: HttpFunc) (ctx: HttpContext) = task {
+//    use connection = new FileConnection(defaultFile)
+//    let connectionF () = Connection.SqliteConnection connection.Value
+//    let team = Queries.Team connectionF
+//    let teams = team.GetTeams(UserId userId) |> Async.map List.ofSeq |> Async.RunSynchronously
+//    return! ctx.WriteJsonAsync teams
+//}
+
 let dummyNames = [
     "Archibald"
     "Brittany"

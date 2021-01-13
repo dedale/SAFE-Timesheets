@@ -8,6 +8,7 @@ module Route =
     let costCentersSpinal = "/api/cost-centers"
     let costCenters = costCentersCamel
     let tasks = "/api/tasks"
+    let activities = "/api/activities"
 
 open System
 
@@ -80,9 +81,11 @@ type Team = {
 }
 
 type LoggedUser =
-    { Username : UserLogin
+    { Id : UserId
+      Username : UserLogin
       Token : JWT
       IsAdmin : bool
+      Teams : Team list
       ManagedTeams : Team list }
 
 type CostCenterId = CostCenterId of int
@@ -196,6 +199,9 @@ module SafeDate =
 
     let min = SafeDate (DateTime(YearNumber.min, 1, 1))
 
+    let tryPrev (SafeDate date) = create (date.AddDays(-1.))
+    let tryNext (SafeDate date) = create (date.AddDays(1.))
+
 type SafeDate with
     member x.Value = SafeDate.value x
 
@@ -276,6 +282,8 @@ module Week =
         | Error m, _ -> failwith m
         | _, Error m -> failwith m
 
+    let current = ofDate SafeDate.today
+
 // List of full? weeks grouped by months
 type MonthWeeks = private Weeks of (MonthNumber * (Week * bool option) list) list
 
@@ -316,6 +324,7 @@ module WorkDays =
             WorkDays(days) |> Ok
 
     let value (WorkDays d) = d
+    let zero = WorkDays 0.
 
 type WorkDays with
     member x.Value = WorkDays.value x
@@ -331,9 +340,17 @@ type ActivityId with
 // No CLIMutable attribute because DTO type is different
 type Activity = {
     Id: ActivityId
-    Date: SafeDate
     UserId: UserId
+    Date: SafeDate
     TaskId: TaskId
     Days: WorkDays
-    Comment: string option
+    Comment: string
+}
+
+type NewActivity = {
+    UserId : UserId
+    Date : SafeDate
+    TaskId : TaskId
+    Days : WorkDays
+    Comment : string
 }

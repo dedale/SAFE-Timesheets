@@ -77,7 +77,7 @@ let loadUsers teamId = promise {
 }
 
 let loadCostCenters() = promise {
-    let! txt = getValuesJson Route.costCenter
+    let! txt = getValuesJson Route.costCenters
     return Decode.Auto.unsafeFromString<CostCenter list> txt |> Ok
 }
 

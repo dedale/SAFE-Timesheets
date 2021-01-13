@@ -670,7 +670,7 @@ let renderAddTeam (state: State) (dispatch: Msg -> unit) =
                             match state.NewTeamManagerId with
                             | Some managerId -> prop.value managerId.Value
                             | _ -> ()
-                            prop.onChange (fun (ev: Event) -> ev.target?value |> UserId |> NewTeamManagerChanged |> dispatch)
+                            prop.onChange (Int32.Parse >> UserId >> NewTeamManagerChanged >> dispatch)
                             prop.children (
                                 state.Users
                                 |> List.map (fun u ->
