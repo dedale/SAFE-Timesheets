@@ -161,10 +161,8 @@ let teamManager = testList "TeamManager" [
         do! db.Create()
         let! manager = db.NewUser "manager" "Mike ANAGER"
         let! team = db.NewTeam "The Team" manager.Id
-        let! manager = db.NewUser "manager" "Mike ANAGER"
 
         let teamManager = Queries.TeamManager db.ConnectionF
-        let! _ = teamManager.New team.Id manager.Id
         let! teamManagers = teamManager.GetAll()
         Expect.hasCountOf teamManagers 1u (fun _ -> true) ""
         let first = teamManagers |> Seq.head
@@ -177,7 +175,6 @@ let teamManager = testList "TeamManager" [
         do! db.Create()
         let! manager = db.NewUser "manager" "Mike ANAGER"
         let! team = db.NewTeam "The Team" manager.Id
-        let! manager = db.NewUser "manager" "Mike ANAGER"
 
         let teamManager = Queries.TeamManager db.ConnectionF
 

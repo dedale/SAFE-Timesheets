@@ -186,12 +186,12 @@ type SafeDate = private SafeDate of DateTime
 
 module SafeDate =
     let create (date: DateTime) =
-        if date.TimeOfDay <> TimeSpan.Zero then
-            Error "TimeOfDay should be zero"
-        else
-            match YearNumber.create date.Year with
-            | Error m -> Error m
-            | Ok _ -> SafeDate date |> Ok
+        //if date.TimeOfDay <> TimeSpan.Zero then
+        //    Error "TimeOfDay should be zero"
+        //else
+        match YearNumber.create date.Year with
+        | Error m -> Error m
+        | Ok _ -> SafeDate date.Date |> Ok
 
     let value (SafeDate d) = d
 
@@ -225,7 +225,7 @@ module Week =
         | _ -> failwith "Invalid date"
 
     let finish (date: SafeDate) =
-        let Friday = (start date).Value.AddDays 4.
+        let Friday = ((start date).Value.AddDays 4.)
         match SafeDate.create Friday with
         | Ok d -> d
         | _ -> failwith "Invalid date"
@@ -284,6 +284,8 @@ module Week =
 
     let current = ofDate SafeDate.today
 
+    let route (UserId i) (week: Week) = sprintf "/api/users/%i/activities/%i/%i" i week.Year week.Number
+
 // List of full? weeks grouped by months
 type MonthWeeks = private Weeks of (MonthNumber * (Week * bool option) list) list
 
@@ -333,6 +335,7 @@ type ActivityId = ActivityId of int
 
 module ActivityId =
     let value (ActivityId i) = i
+    let route (ActivityId i) = sprintf "/api/activities/%i" i
 
 type ActivityId with
     member x.Value = ActivityId.value x

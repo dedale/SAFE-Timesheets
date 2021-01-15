@@ -7,6 +7,7 @@ open Giraffe
 open Microsoft.AspNetCore.Http
 
 let getWeeks (year: int) (next: HttpFunc) (ctx: HttpContext) = task {
+    // TODO get week days from DB
     let tryIsFull (week: Week) =
         if week.Year <= 2020
         then Some true

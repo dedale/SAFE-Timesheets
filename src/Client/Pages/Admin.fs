@@ -339,11 +339,8 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | DelUserClicked (userId, Completed delResult) ->
         let nextState = { state with TryDelUser = Resolved delResult }
         match delResult with
-        | Ok deleted ->
-            if deleted then
-                { nextState with Users = nextState.Users |> List.where (fun user -> user.Id <> userId) }, Cmd.none
-            else
-                nextState, Cmd.none
+        | Ok deleted when deleted ->
+            { nextState with Users = nextState.Users |> List.where (fun user -> user.Id <> userId) }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -382,11 +379,8 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | DelTeamClicked (teamId, Completed delResult) ->
         let nextState = { state with TryDelTeam = Resolved delResult }
         match delResult with
-        | Ok deleted ->
-            if deleted then
-                { nextState with Teams = nextState.Teams |> List.where (fun team -> team.Id <> teamId) }, Cmd.none
-            else
-                nextState, Cmd.none
+        | Ok deleted when deleted ->
+            { nextState with Teams = nextState.Teams |> List.where (fun team -> team.Id <> teamId) }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -417,11 +411,8 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | DelCostCenterClicked (costCenterId, Completed delResult) ->
         let nextState = { state with TryDelCostCenter = Resolved delResult }
         match delResult with
-        | Ok deleted ->
-            if deleted then
-                { nextState with CostCenters = nextState.CostCenters |> List.where (fun costCenter -> costCenter.Id <> costCenterId) }, Cmd.none
-            else
-                nextState, Cmd.none
+        | Ok deleted when deleted ->
+            { nextState with CostCenters = nextState.CostCenters |> List.where (fun costCenter -> costCenter.Id <> costCenterId) }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -460,11 +451,8 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | DelTaskClicked (taskId, Completed delResult) ->
         let nextState = { state with TryDelTask = Resolved delResult }
         match delResult with
-        | Ok deleted ->
-            if deleted then
-                { nextState with Tasks = nextState.Tasks |> List.where (fun task -> task.Id <> taskId) }, Cmd.none
-            else
-                nextState, Cmd.none
+        | Ok deleted when deleted ->
+            { nextState with Tasks = nextState.Tasks |> List.where (fun task -> task.Id <> taskId) }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -594,6 +582,7 @@ let renderUsers (state: State) (dispatch: Msg -> unit) =
         )
     ]
 
+// TODO show manager of team
 let renderTeam (state: State) (dispatch: Msg -> unit) (team: Team) =
     Bulma.columns [
         columns.isVCentered

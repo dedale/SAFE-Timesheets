@@ -117,7 +117,8 @@ module TypeHandlers =
             param.Value <- date.Value
 
         override __.Parse(value: obj) =
-            let date = value :?> string |> DateTime.Parse
+            let s = value :?> string
+            let date = s |> DateTime.Parse
             match SafeDate.create date with
             | Ok x -> x
             | _ -> failwith (sprintf "Failed to parse '%A' as SafeDate" value)
@@ -206,7 +207,8 @@ module Queries =
                     -- Start DATE NULL,
                     -- End DATE NULL,
                     FOREIGN KEY(UserId) REFERENCES User(Id),
-                    FOREIGN KEY(TeamId) REFERENCES Team(Id)
+                    FOREIGN KEY(TeamId) REFERENCES Team(Id),
+                    UNIQUE (UserId, TeamId)
                 );
 
                 DROP TABLE IF EXISTS TeamManager;
@@ -216,7 +218,8 @@ module Queries =
                     -- Start DATE NULL,
                     -- End DATE NULL,
                     FOREIGN KEY(ManagerId) REFERENCES User(Id),
-                    FOREIGN KEY(TeamId) REFERENCES Team(Id)
+                    FOREIGN KEY(TeamId) REFERENCES Team(Id),
+                    UNIQUE (ManagerId, TeamId)
                 );
 
                 DROP TABLE IF EXISTS TeamTask;
@@ -224,14 +227,15 @@ module Queries =
                     TeamId INTEGER NOT NULL,
                     TaskId INTEGER NOT NULL,
                     FOREIGN KEY(TeamId) REFERENCES Team(Id),
-                    FOREIGN KEY(TaskId) REFERENCES Task(Id)
+                    FOREIGN KEY(TaskId) REFERENCES Task(Id),
+                    UNIQUE (TeamId, TaskId)
                 );
                 
                 -- TODO unique logins
                 DROP TABLE IF EXISTS User;
                 CREATE TABLE User (
                     Id INTEGER NOT NULL PRIMARY KEY,
-                    Login VARCHAR(15) NOT NULL,
+                    Login VARCHAR(15) NOT NULL UNIQUE,
                     Name VARCHAR(255) NOT NULL,
                     Start DATE NULL,
                     End DATE NULL
@@ -240,7 +244,7 @@ module Queries =
                 DROP TABLE IF EXISTS Task;
                 CREATE TABLE Task (
                     Id INTEGER NOT NULL PRIMARY KEY,
-                    Name VARCHAR(255) NOT NULL,
+                    Name VARCHAR(255) NOT NULL UNIQUE,
                     CostCenterId INTEGER NOT NULL,
                     FOREIGN KEY(CostCenterId) REFERENCES CostCenter(Id)
                 );
@@ -248,16 +252,18 @@ module Queries =
                 DROP TABLE IF EXISTS Team;
                 CREATE TABLE Team (
                     Id INTEGER NOT NULL PRIMARY KEY,
-                    Name VARCHAR(255) NOT NULL
+                    Name VARCHAR(255) NOT NULL UNIQUE
                 );
 
                 DROP TABLE IF EXISTS CostCenter;
                 CREATE TABLE CostCenter (
                     Id INTEGER NOT NULL PRIMARY KEY,
-                    Name VARCHAR(255) NOT NULL
+                    Name VARCHAR(255) NOT NULL UNIQUE
                 );
             """
         }
+
+    // TODO Always add user in a team
 
     type User (connectionF: unit -> Connection) =
 
@@ -508,6 +514,17 @@ module Queries =
         member __.Delete activityId = querySingleIntOptionAsync {
             script "DELETE FROM Activity WHERE Id = @Id"
             parameters (dict ["Id", box activityId])
+        }
+
+        member __.Update (activity: Shared.Activity) = querySingleIntOptionAsync {
+            script "UPDATE Activity SET Date = @Date, TaskId = @TaskId, Days = @Days, Comment = @Comment WHERE Id = @Id"
+            parameters (dict [
+                "Id", box activity.Id
+                "Date", box activity.Date
+                "TaskId", box activity.TaskId
+                "Days", box activity.Days
+                "Comment", box activity.Comment
+            ])
         }
 
     let init() = async {

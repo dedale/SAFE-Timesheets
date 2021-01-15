@@ -48,6 +48,8 @@ let webApp =
 
         getf "/api/users/%i/activities/%i/%i" Handlers.Activity.getActivities
         post Route.activities Handlers.Activity.addActivity
+        put Route.activities Handlers.Activity.updateActivity
+        deletef "/api/activities/%i" Handlers.Activity.delActivity
     }
 
 let app =
