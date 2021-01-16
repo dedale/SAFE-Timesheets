@@ -95,7 +95,7 @@ module TypeHandlers =
         override __.SetValue(param, date) =
             let valueOrNull =
                 match date with
-                | Some d -> box d.Value
+                | Some d -> box (SafeDate.toSqlite d)
                 | None   -> null
             param.Value <- valueOrNull
 
@@ -103,10 +103,7 @@ module TypeHandlers =
             if Object.ReferenceEquals(value, null) || value = box DBNull.Value
             then None
             else
-                let date = value :?> string |> DateTimeOffset.Parse
-                match SafeDate.create date with
-                | Ok x -> Some x
-                | _ -> None
+                value :?> string |> SafeDate.ofSqlite |> Some
 
         static member Register() =
             SqlMapper.AddTypeHandler(SafeDateOptionHandler())
@@ -115,14 +112,10 @@ module TypeHandlers =
         inherit SqlMapper.TypeHandler<SafeDate>()
 
         override __.SetValue(param, date) =
-            param.Value <- date.Value
+            param.Value <- SafeDate.toSqlite date
 
         override __.Parse(value: obj) =
-            let s = value :?> string
-            let date = s |> DateTimeOffset.Parse
-            match SafeDate.create date with
-            | Ok x -> x
-            | _ -> failwith (sprintf "Failed to parse '%A' as SafeDate" value)
+            value :?> string |> SafeDate.ofSqlite
 
         static member Register() =
             SqlMapper.AddTypeHandler(SafeDateHandler())
@@ -154,28 +147,6 @@ module TypeHandlers =
         WorkDaysHandler.Register()
 
 module Types =
-
-    //[<CLIMutable>]
-    //type Activity = {
-    //    Id : ActivityId
-    //    Date : SafeDate
-    //    UserId : UserId
-    //    TaskId : TaskId
-    //    Days : WorkDays
-    //    Comment : string
-    //    // To quickly find incomplete weeks: sum days by year by week
-    //    Year : int
-    //    Week : int
-    //}
-
-    //module Activity =
-    //    let toDomain (activity: Activity) =
-    //        { Shared.Activity.Id = activity.Id
-    //          Date = activity.Date
-    //          UserId = activity.UserId
-    //          TaskId = activity.TaskId
-    //          Days = activity.Days
-    //          Comment = activity.Comment }
 
     [<CLIMutable>]
     type WeekDays = {
@@ -554,7 +525,7 @@ module Queries =
             } |> Async.map (Seq.map (fun x ->
                 match Types.WeekDays.toDomain x with
                 | Ok wd -> wd
-                | _ -> failwith "") >> List.ofSeq)
+                | Error m -> failwith m) >> List.ofSeq)
 
     let init() = async {
 
@@ -592,7 +563,7 @@ module Queries =
             let! costCenterId = costCenter.New "Cost Center 1" |> Async.map valueOrFail
 
             let task = Task connectionF
-            let! _ = task.New "Task 1" costCenterId |> Async.map valueOrFail
+            let! _ = task.New "Days off / holidays" costCenterId |> Async.map valueOrFail
 
             let! _ = task.NewTeamTask team1Id "Team 1 Task 1" costCenterId |> Async.map valueOrFail
 

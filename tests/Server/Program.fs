@@ -10,6 +10,7 @@ let all =
         [
             FileSystem.Tests.all
             Database.Tests.all
+            PublicHolidays.Tests.all
         ]
 
 [<EntryPoint>]

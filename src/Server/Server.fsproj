@@ -9,6 +9,7 @@
     <Compile Include="FileSystem.fs" />
     <Compile Include="AssemblyExtensions.fs" />
     <Compile Include="Database.fs" />
+    <Compile Include="PublicHolidays.fs" />
     <Compile Include="Handlers\Login.fs" />
     <Compile Include="Handlers\User.fs" />
     <Compile Include="Handlers\Team.fs" />

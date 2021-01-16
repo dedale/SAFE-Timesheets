@@ -137,9 +137,9 @@ let teamMember = testList "TeamMember" [
     testCaseAsync "User & team must exist" <| async {
         use db = new TempDb()
         do! db.Create()
-        let! john = db.NewUser "jdoe" "John DOE"
         let! manager = db.NewUser "manager" "Mike ANAGER"
         let! team = db.NewTeam "The Missing" manager.Id
+        let! john = db.NewUser "jdoe" "John DOE"
 
         let queries = Queries.TeamMember db.ConnectionF
 
@@ -234,7 +234,7 @@ let activity = testList "Activity" [
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
         let queries = Queries.Activity db.ConnectionF
-        let today = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail
+        let today = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail
         let comment = "Rewrite with F#, Fable, SAFE-Stack, Expecto, Dapper, etc."
         let! _ = queries.New user.Id today task.Id 1. comment
         let! activities = queries.GetWeek user.Id (Week.ofDate today)
@@ -254,17 +254,17 @@ let activity = testList "Activity" [
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
         let queries = Queries.Activity db.ConnectionF
-        let prevFriday = DateTime(2021, 1, 1) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let prevFriday = DateTime(2021, 1, 1) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New user.Id prevFriday task.Id 1. "Previous week"
-        let Monday = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New user.Id Monday task.Id 1. "Monday"
-        let Monday = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New otherUser.Id Monday task.Id 1. "Monday other user"
-        let Friday = DateTime(2021, 1, 8) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New user.Id Friday task.Id 1. "Friday"
-        let Friday = DateTime(2021, 1, 8) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New otherUser.Id Friday task.Id 1. "Friday other user"
-        let nextMonday = DateTime(2021, 1, 11) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let nextMonday = DateTime(2021, 1, 11) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New user.Id nextMonday task.Id 1. "Next week"
         let week =
             match Week.create 1 2021 with
@@ -284,9 +284,9 @@ let activity = testList "Activity" [
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
         let queries = Queries.Activity db.ConnectionF
-        let Monday = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New user.Id Monday task.Id 1. "Monday"
-        let Friday = DateTime(2021, 1, 8) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
         let! _ = queries.New user.Id Friday task.Id 1. "Friday"
         let week =
             match Week.create 1 2021 with

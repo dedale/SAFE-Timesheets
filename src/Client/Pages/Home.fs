@@ -77,7 +77,7 @@ type EditingActivity = {
 }
 
 let getNewDate (week: ActiveWeek) (activities: Activity list) =
-    let rec find (date: DateTimeOffset) (days: float) (activities: Activity list) =
+    let rec find date (days: float) (activities: Activity list) =
         match activities with
         | x :: xs ->
             if date < x.Date.Value then
@@ -353,7 +353,9 @@ let update (msg: Msg) (state: State) =
         let nextState = { state with TryLoadActivities = Resolved result }
         match result with
         | Ok activities ->
-            State.updateNewDate { nextState with Activities = activities }, Cmd.none
+            // Update week needed in case of public holidays
+            let newWeeks = updateWeeks nextState activities
+            State.updateNewDate { nextState with Activities = activities; Weeks = newWeeks }, Cmd.none
         | _ ->
             nextState, Cmd.none
 

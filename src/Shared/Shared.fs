@@ -11,6 +11,7 @@ module Route =
     let activities = "/api/activities"
 
 open System
+open System.Globalization
 
 type UserCredentials =
     { Username : string
@@ -142,7 +143,7 @@ module YearNumber =
     // 2007-01-01 is a Monday
     let min = 2007
     let max = 2050
-    let current = YearNumber DateTimeOffset.UtcNow.Year
+    let current = YearNumber DateTime.UtcNow.Year
     let create year =
         if year < min then
             Error (sprintf "Year should be >= %i" min)
@@ -169,7 +170,7 @@ module MonthNumber =
         else
             MonthNumber month |> Ok
 
-    let ofDate (date: DateTimeOffset) = MonthNumber date.Month
+    let ofDate (date: DateTime) = MonthNumber date.Month
 
     let value (MonthNumber month) = month
 
@@ -179,32 +180,35 @@ type MonthNumber with
 type SafeDate = private SafeDate of DateTimeOffset
 
 module SafeDate =
-    let private workDay (dateTime: DateTimeOffset) =
-        let date = dateTime
-        match date.DayOfWeek with
-        | DayOfWeek.Saturday -> (date.AddDays -1.)
-        | DayOfWeek.Sunday -> (date.AddDays -2.)
-        | _ -> date
+    let createUnsafe (date: DateTime) =
+        DateTimeOffset(date.Year, date.Month, date.Day, 0, 0, 0, TimeSpan.Zero) |> SafeDate
 
-    let create (date: DateTimeOffset) =
-        //if date.TimeOfDay <> TimeSpan.Zero then
-        //    Error "TimeOfDay should be zero"
-        //else
+    let create (date: DateTime) =
         match YearNumber.create date.Year with
         | Error m -> Error m
-        | Ok _ -> workDay date |> SafeDate |> Ok
+        | Ok _ -> createUnsafe date |> Ok
 
-    let value (SafeDate d) = d
+    let value (SafeDate d) = d.Date
+    let offset (SafeDate d) = d
 
-    let today = workDay DateTimeOffset.UtcNow |> SafeDate
+    let today = createUnsafe DateTime.UtcNow
 
-    let min = SafeDate (DateTimeOffset(DateTime(YearNumber.min, 1, 1)))
+    let min = DateTime(YearNumber.min, 1, 1) |> createUnsafe
 
-    let tryPrev (SafeDate date) = create (date.AddDays(-1.))
-    let tryNext (SafeDate date) = create (date.AddDays(1.))
+    let tryPrev (SafeDate date) = create (date.Date.AddDays(-1.))
+    let tryNext (SafeDate date) = create (date.Date.AddDays(1.))
+
+    let private format = "yyyy-MM-dd HH:mm:ss"
+
+    let ofSqlite s =
+        DateTimeOffset.Parse(s, CultureInfo.InvariantCulture).Date |> createUnsafe
+
+    let toSqlite (SafeDate date) =
+        date.ToString(format, CultureInfo.InvariantCulture)
 
 type SafeDate with
     member x.Value = SafeDate.value x
+    member x.Offset = SafeDate.offset x
 
 [<RequireQualifiedAccess>]
 type WeekAge =
@@ -212,12 +216,12 @@ type WeekAge =
     | Current
     | Future
 
-let rec private findMonday (date: DateTimeOffset) =
+let rec private findMonday (date: DateTime) =
     if date.DayOfWeek = DayOfWeek.Monday
     then date
     else findMonday (date.AddDays -1.)
 
-let private January4 year = DateTimeOffset(DateTime(year, 1, 4))
+let private January4 year = DateTime(year, 1, 4)
 
 type Week = private {
         number: int
@@ -263,7 +267,8 @@ module Week =
         elif number >= 54
         then Error "Number should be <= 53"
         else
-            match SafeDate.create ((January4 year).AddDays(7. * float (number - 1))) with
+            let created = SafeDate.create ((January4 year).AddDays(7. * float (number - 1)))
+            match created with
             | Error m -> Error m
             | Ok date ->
                 let expected = ofDate date
@@ -284,11 +289,20 @@ module Week =
             | Error m -> failwith m)
 
     let Monday (week: Week) =
-        (January4 week.Year).AddDays(7. * float (week.Number - 1)) |> findMonday |> SafeDate
+        (January4 week.Year).AddDays(7. * float (week.Number - 1))
+        |> findMonday
+        |> SafeDate.create
+        |> (fun d ->
+            match d with
+            | Ok dd -> dd
+            | Error m -> failwith m)
 
     let range (week: Week) =
         let Monday = Monday week
-        let Friday = Monday.Value.AddDays 4. |> SafeDate
+        let Friday =
+            Monday.Value.AddDays 4.
+            |> (fun d -> d.Date)
+            |> SafeDate.createUnsafe
         Monday, Friday
 
     let current = ofDate SafeDate.today
@@ -328,7 +342,7 @@ module MonthWeeks =
                 | Error m -> failwith m)
             |> Seq.groupBy (fun (_, date) ->
                 let d = date.Value
-                DateTimeOffset(DateTime(d.Year, d.Month, 1)))
+                DateTime(d.Year, d.Month, 1))
             |> Seq.map (fun (month1st, weeks) ->
                 MonthNumber.ofDate month1st,
                 Seq.map fst weeks
@@ -343,7 +357,7 @@ module MonthWeeks =
         let weekMonth =
             let Monday = Week.Monday week
             let date = Monday.Value
-            DateTimeOffset(DateTime(date.Year, date.Month, 1)) |> MonthNumber.ofDate
+            DateTime(date.Year, date.Month, 1) |> MonthNumber.ofDate
         monthWeeks
         |> List.map (fun (month, weeks) ->
             if weekMonth.Value = month.Value
@@ -367,6 +381,7 @@ module WorkDays =
 
     let value (WorkDays d) = d
     let zero = WorkDays 0.
+    let one = WorkDays 1.
     let max = WorkDays 5.
 
 type WorkDays with
