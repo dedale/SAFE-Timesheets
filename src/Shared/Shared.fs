@@ -136,12 +136,6 @@ type TeamManager = {
     ManagerId: UserId
 }
 
-[<CLIMutable>]
-type TeamTask = {
-    TeamId: TeamId
-    TaskId: TaskId
-}
-
 type YearNumber = private YearNumber of int
 
 module YearNumber =
@@ -185,17 +179,25 @@ type MonthNumber with
 type SafeDate = private SafeDate of DateTime
 
 module SafeDate =
+    let private workDay (date: DateTime) =
+        let newDay =
+            match date.DayOfWeek with
+            | DayOfWeek.Saturday -> date.AddDays -1.
+            | DayOfWeek.Sunday -> date.AddDays -2.
+            | _ -> date
+        newDay.Date
+
     let create (date: DateTime) =
         //if date.TimeOfDay <> TimeSpan.Zero then
         //    Error "TimeOfDay should be zero"
         //else
         match YearNumber.create date.Year with
         | Error m -> Error m
-        | Ok _ -> SafeDate date.Date |> Ok
+        | Ok _ -> workDay date |> SafeDate |> Ok
 
     let value (SafeDate d) = d
 
-    let today = SafeDate DateTime.Today
+    let today = workDay DateTime.Today |> SafeDate
 
     let min = SafeDate (DateTime(YearNumber.min, 1, 1))
 
@@ -284,7 +286,8 @@ module Week =
 
     let current = ofDate SafeDate.today
 
-    let route (UserId i) (week: Week) = sprintf "/api/users/%i/activities/%i/%i" i week.Year week.Number
+    let activityRoute (UserId i) (week: Week) = sprintf "/api/users/%i/activities/%i/%i" i week.Year week.Number
+    let yearRoute (UserId i) (YearNumber y) = sprintf "/api/users/%i/years/%i" i y
 
 // List of full? weeks grouped by months
 type MonthWeeks = private Weeks of (MonthNumber * (Week * bool option) list) list
@@ -327,6 +330,7 @@ module WorkDays =
 
     let value (WorkDays d) = d
     let zero = WorkDays 0.
+    let max = WorkDays 5.
 
 type WorkDays with
     member x.Value = WorkDays.value x
@@ -340,7 +344,7 @@ module ActivityId =
 type ActivityId with
     member x.Value = ActivityId.value x
 
-// No CLIMutable attribute because DTO type is different
+[<CLIMutable>]
 type Activity = {
     Id: ActivityId
     UserId: UserId
@@ -356,4 +360,9 @@ type NewActivity = {
     TaskId : TaskId
     Days : WorkDays
     Comment : string
+}
+
+type WeekDays = {
+    Week : Week
+    Days : WorkDays
 }

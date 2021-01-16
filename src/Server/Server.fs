@@ -44,7 +44,7 @@ let webApp =
         post Route.tasks Handlers.Task.addTask
         deletef "/api/tasks/%i" Handlers.Task.delTask
 
-        getf "/api/years/%i" Handlers.Year.getWeeks
+        getf "/api/users/%i/years/%i" Handlers.Year.getWeeks
 
         getf "/api/users/%i/activities/%i/%i" Handlers.Activity.getActivities
         post Route.activities Handlers.Activity.addActivity

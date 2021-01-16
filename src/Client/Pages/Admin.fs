@@ -23,6 +23,7 @@ type LoadTeamsResult = Result<Team list, string>
 type LoadCostCentersResult = Result<CostCenter list, string>
 type LoadTasksResult = Result<Task list, string>
 
+// TODO Add user in team
 type AddUserResult = Result<User, string>
 type DelUserResult = Result<bool, string>
 

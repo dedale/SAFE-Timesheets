@@ -226,46 +226,6 @@ let task = testList "Task" [
     }
 ]
 
-let teamTask = testList "TeamTask" [
-    testCaseAsync "New team task" <| async {
-        use db = new TempDb()
-        do! db.Create()
-        let! manager = db.NewUser "manager" "Mike ANAGER"
-        let! team = db.NewTeam "The Team" manager.Id
-        let! costCenter = db.NewCostCenter "Projects"
-        let! task = db.NewTask "Timesheet" costCenter.Id
-
-        let teamTask = Queries.TeamTask db.ConnectionF
-        let! _ = teamTask.New team.Id task.Id
-        let! teamTasks = teamTask.GetAll()
-        Expect.hasCountOf teamTasks 1u (fun _ -> true) ""
-        let first = teamTasks |> Seq.head
-        Expect.equal first.TeamId team.Id ""
-        Expect.equal first.TaskId task.Id ""
-    }
-
-    testCaseAsync "Team & task must exist" <| async {
-        use db = new TempDb()
-        do! db.Create()
-        let! manager = db.NewUser "manager" "Mike ANAGER"
-        let! team = db.NewTeam "The Team" manager.Id
-        let! costCenter = db.NewCostCenter "Projects"
-        let! task = db.NewTask "Timesheet" costCenter.Id
-
-        let teamTask = Queries.TeamTask db.ConnectionF
-
-        Expect.throws (fun () ->
-            teamTask.New (TeamId (team.Id.Value + 1)) task.Id
-            |> Async.RunSynchronously
-            |> ignore) "TeamId foreign key missing in TeamTask"
-
-        Expect.throws (fun () ->
-            teamTask.New team.Id (TaskId (task.Id.Value + 1))
-            |> Async.RunSynchronously
-            |> ignore) "TaskId foreign key missing in TeamTask"
-    }
-]
-
 let activity = testList "Activity" [
     testCaseAsync "New activity" <| async {
         use db = new TempDb()
@@ -277,7 +237,7 @@ let activity = testList "Activity" [
         let today = SafeDate.today
         let comment = "Rewrite with F#, Fable, SAFE-Stack, Expecto, Dapper, etc."
         let! _ = activity.New user.Id today task.Id 1. comment
-        let! activities = activity.GetAll()
+        let! activities = activity.GetWeek user.Id (Week.ofDate today)
         Expect.hasCountOf activities 1u (fun _ -> true) ""
         let first = activities |> Seq.head
         Expect.equal first.Date today ""
@@ -349,6 +309,5 @@ let all =
             teamManager
             costCenter
             task
-            teamTask
             activity
         ]

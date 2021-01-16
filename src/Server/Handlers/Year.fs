@@ -2,22 +2,29 @@
 
 open Shared
 
+open Database
+
+open FSharp.Data.Dapper
 open FSharp.Control.Tasks.ContextInsensitive
 open Giraffe
 open Microsoft.AspNetCore.Http
+open Saturn.ControllerHelpers
 
-let getWeeks (year: int) (next: HttpFunc) (ctx: HttpContext) = task {
-    // TODO get week days from DB
-    let tryIsFull (week: Week) =
-        if week.Year <= 2020
-        then Some true
-        elif week.Year = 2021 then
-            if week.Number <= 2
-            then Some true
-            elif week.Number = 3
-            then Some false
-            else None
-        else None
-    let monthWeeks = MonthWeeks.create year tryIsFull
-    return! ctx.WriteJsonAsync monthWeeks
+let getWeeks (userId: int, year: int) (next: HttpFunc) (ctx: HttpContext) = task {
+    use connection = new FileConnection(defaultFile)
+    let connectionF () = Connection.SqliteConnection connection.Value
+    let weekDays = Queries.WeekDays connectionF
+    match YearNumber.create year with
+    | Ok y ->
+        let weekDays =
+            weekDays.GetWeeks (UserId userId) y
+            |> Async.RunSynchronously
+        let isWeekFull =
+            weekDays
+            |> List.map (fun wd -> wd.Week, wd.Days = WorkDays.max)
+            |> Map.ofList
+        let monthWeeks = MonthWeeks.create year isWeekFull.TryFind
+        return! ctx.WriteJsonAsync monthWeeks
+    | Error m ->
+        return! Response.internalError ctx ""
 }

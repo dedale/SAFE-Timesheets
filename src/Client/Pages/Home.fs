@@ -105,6 +105,7 @@ type Msg =
     | SetNewDuration of string
     | SetNewComment of string
     | AddActivityClicked of PromiseStatus<AddActivityResult>
+    | CancelAddClicked
     | EditActivityClicked of Activity
     | DeleteActivityClicked of ActivityId * PromiseStatus<DeleteActivityResult>
     | UpdateDate of Result<SafeDate, string>
@@ -114,14 +115,18 @@ type Msg =
     | CancelEditClicked
     | SaveActivityClicked of PromiseStatus<AddActivityResult>
 
-let loadWeeks year = promise {
-    let props = [
-        Method HttpMethod.GET
-        Fetch.requestHeaders [ ContentType "application/json" ]
-    ]
-    let! res = Fetch.fetch (YearNumber.route year) props
-    let! txt = res.text()
-    return Decode.Auto.unsafeFromString<MonthWeeks> txt |> Ok
+let loadWeeks user year = promise {
+    match user with
+    | Anonymous ->
+        return Error ""
+    | LoggedIn loggedIn ->
+        let props = [
+            Method HttpMethod.GET
+            Fetch.requestHeaders [ ContentType "application/json" ]
+        ]
+        let! res = Fetch.fetch (Week.yearRoute loggedIn.Id year) props
+        let! txt = res.text()
+        return Decode.Auto.unsafeFromString<MonthWeeks> txt |> Ok
 }
 
 let loadTasks user = promise {
@@ -159,7 +164,7 @@ let loadActivities user (week: Week) = promise {
             Method HttpMethod.GET
             Fetch.requestHeaders [ ContentType "application/json" ]
         ]
-        let! res = Fetch.fetch (Week.route loggedIn.Id week) props
+        let! res = Fetch.fetch (Week.activityRoute loggedIn.Id week) props
         let! txt = res.text()
         return Decode.Auto.unsafeFromString<Activity list> txt |> Ok
 }
@@ -278,13 +283,16 @@ let update (msg: Msg) (state: State) =
     | ChangeYearClicked newYear ->
         let nextState = { state with Year = newYear; TryLoadWeeks = InProgress }
         let nextCmd =
-            Cmd.OfPromise.either loadWeeks nextState.Year id onFailed
+            Cmd.OfPromise.either (uncurry loadWeeks) (state.User, nextState.Year) id onFailed
             |> Cmd.map (Completed >> LoadWeeks)
         nextState, nextCmd
 
     | ChangeWeekClicked newWeek ->
-        // TODO
-        state, Cmd.none
+        let nextState = { state with Week = ActiveWeek.create newWeek; TryLoadActivities = InProgress }
+        let nextCmd =
+            Cmd.OfPromise.either (uncurry loadActivities) (state.User, newWeek) id onFailed
+            |> Cmd.map (Completed >> LoadActivities)
+        nextState, nextCmd
 
     | SetNewDate date ->
         printfn "SetNewDate %A" date
@@ -342,6 +350,13 @@ let update (msg: Msg) (state: State) =
             { nextState with Activities = activity :: nextState.Activities; NewActivity = PendingActivity.create defaultTaskId }, Cmd.none
         | _ ->
             nextState, Cmd.none
+
+    | CancelAddClicked ->
+        let defaultTaskId =
+            match state.Tasks with
+            | t :: ts -> Some t.Id
+            | _ -> None
+        { state with NewActivity = PendingActivity.create defaultTaskId }, Cmd.none
 
     | EditActivityClicked activity ->
         let editable =
@@ -572,9 +587,9 @@ let renderWeeks (state: State) (dispatch: Msg -> unit) =
                                         | Some b -> if b then color.isSuccess else color.isInfo
                                         | _ -> color.isWhite
                                         prop.key (sprintf "week_%i_%i" state.Year.Value week.Number)
+                                        prop.disabled state.EditingActivity.IsSome
                                         // TODO change week
-                                        // TODO disabled if editing
-                                        // TODO prop.onClick (fun _ -> )
+                                        prop.onClick (fun _ -> ChangeWeekClicked week |> dispatch)
                                         prop.text week.Number
                                     ]
                                     yield Html.none
@@ -840,6 +855,14 @@ let renderNewActivity (state: State) dispatch =
                     prop.onClick (fun _ -> AddActivityClicked Pending |> dispatch)
                     prop.children [
                         Fa.i [ Fa.Solid.Plus ] []
+                    ]
+                ]
+                Bulma.button.button [
+                    color.isWarning; button.isSmall; spacing.mx2
+                    prop.disabled (not daysOk)
+                    prop.onClick (fun _ -> CancelAddClicked |> dispatch)
+                    prop.children [
+                        Fa.i [ Fa.Solid.Ban ] []
                     ]
                 ]
             ]

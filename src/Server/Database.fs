@@ -154,27 +154,43 @@ module TypeHandlers =
 
 module Types =
 
+    //[<CLIMutable>]
+    //type Activity = {
+    //    Id : ActivityId
+    //    Date : SafeDate
+    //    UserId : UserId
+    //    TaskId : TaskId
+    //    Days : WorkDays
+    //    Comment : string
+    //    // To quickly find incomplete weeks: sum days by year by week
+    //    Year : int
+    //    Week : int
+    //}
+
+    //module Activity =
+    //    let toDomain (activity: Activity) =
+    //        { Shared.Activity.Id = activity.Id
+    //          Date = activity.Date
+    //          UserId = activity.UserId
+    //          TaskId = activity.TaskId
+    //          Days = activity.Days
+    //          Comment = activity.Comment }
+
     [<CLIMutable>]
-    type Activity = {
-        Id: ActivityId
-        Date: SafeDate
-        UserId: UserId
-        TaskId: TaskId
-        Days: WorkDays
-        Comment: string
-        // To quickly find incomplete weeks: sum days by year by week
-        Year: int
-        Week: int
+    type WeekDays = {
+        Year : int
+        Week : int
+        Days : WorkDays
     }
 
-    module Activity =
-        let toDomain (activity : Activity) =
-            { Shared.Activity.Id = activity.Id
-              Date = activity.Date
-              UserId = activity.UserId
-              TaskId = activity.TaskId
-              Days = activity.Days
-              Comment = activity.Comment }
+    module WeekDays =
+        let toDomain (weekDays: WeekDays) =
+            match Week.create weekDays.Week weekDays.Year with
+            | Ok week ->
+                { Shared.WeekDays.Week = week
+                  Days = weekDays.Days
+                } |> Ok
+            | Error m -> Error m
 
 module Queries =
 
@@ -193,6 +209,7 @@ module Queries =
                     TaskId INTEGER NOT NULL,
                     Days FLOAT NOT NULL,
                     Comment VARCHAR(255) NOT NULL,
+                    -- To quickly find incomplete weeks: sum days by week where year
                     Year INTEGER NOT NULL,
                     Week INTEGER NOT NULL,
                     FOREIGN KEY(UserId) REFERENCES User(Id),
@@ -263,7 +280,12 @@ module Queries =
             """
         }
 
-    // TODO Always add user in a team
+    (*
+    TODO Always add user in a team
+    - Create user (manager) and team
+    - Create user (member) with existing team
+    - Create team with existing user (manager)
+    *)
 
     type User (connectionF: unit -> Connection) =
 
@@ -462,24 +484,10 @@ module Queries =
             parameters (dict ["TeamId", box teamId])
         }
 
-    type TeamTask (connectionF: unit -> Connection) =
-
-        let querySingleIntOptionAsync = querySingleOptionAsync<int> connectionF
-        let querySeqTeamMemberAsync = querySeqAsync<Shared.TeamTask> connectionF
-
-        member __.New (teamId: TeamId) (taskId: TaskId) = querySingleIntOptionAsync {
-            script "INSERT INTO TeamTask (TeamId, TaskId) VALUES (@TeamId, @TaskId)"
-            parameters (dict ["TeamId", box teamId; "TaskId", box taskId])
-        }
-
-        member __.GetAll() = querySeqTeamMemberAsync {
-            script "SELECT * FROM TeamTask"
-        }
-
     type Activity (connectionF: unit -> Connection) =
 
         let querySingleIntOptionAsync = querySingleOptionAsync<int> connectionF
-        let querySeqActivityAsync = querySeqAsync<Types.Activity> connectionF
+        let querySeqActivityAsync = querySeqAsync<Shared.Activity> connectionF
 
         member __.New (userId: UserId) date (taskId: TaskId) days comment =
             let week = Week.ofDate date
@@ -500,14 +508,17 @@ module Queries =
                 ])
             } |> Async.map (Option.map ActivityId)
 
-        member __.GetAll() = querySeqActivityAsync {
-            script "SELECT * FROM Activity"
-        }
+        //member __.GetAll() = querySeqActivityAsync {
+        //    script "SELECT * FROM Activity"
+        //}
 
         member __.GetWeek (userId: UserId) (week: Week) =
             let Monday, Friday = Week.range week
             querySeqActivityAsync {
-                script "SELECT * FROM Activity WHERE UserId = @UserId AND Date >= @Monday AND DATE <= @Friday"
+                script """
+                    SELECT Id, Date, UserId, TaskId, Days, Comment
+                    FROM Activity WHERE UserId = @UserId AND Date >= @Monday AND DATE <= @Friday
+                """
                 parameters (dict ["UserId", box userId; "Monday", box Monday; "Friday", box Friday])
             }
 
@@ -526,6 +537,23 @@ module Queries =
                 "Comment", box activity.Comment
             ])
         }
+
+    type WeekDays (connectionF: unit -> Connection) =
+        let querySeqWeekAsync = querySeqAsync<Types.WeekDays> connectionF
+
+        member __.GetWeeks (userId: UserId) (year: YearNumber) =
+            querySeqWeekAsync {
+                script """
+                    SELECT SUM(Days) AS Days, Year, Week
+                    FROM Activity
+                    WHERE UserId = @UserId AND Year = @Year
+                    GROUP BY Year, Week
+                """
+                parameters (dict ["UserId", box userId; "Year", box year.Value])
+            } |> Async.map (Seq.map (fun x ->
+                match Types.WeekDays.toDomain x with
+                | Ok wd -> wd
+                | _ -> failwith "") >> List.ofSeq)
 
     let init() = async {
 
