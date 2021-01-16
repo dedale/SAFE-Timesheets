@@ -40,6 +40,7 @@ type ActiveWeek = private {
         member x.Friday = x.friday
         member x.Number = x.week.Number
         member x.Year = x.week.Year
+        member x.Age = Week.age x.week
 
 module ActiveWeek =
     let create week =
@@ -58,8 +59,8 @@ type PendingActivity = {
 }
 
 module PendingActivity =
-    let create taskId =
-        { Date = SafeDate.today
+    let create date taskId =
+        { Date = date
           TaskId = taskId
           DurationText = "0"
           Days = Ok WorkDays.zero
@@ -185,7 +186,7 @@ let init user =
           TryLoadActivities = NotStarted
           // Activities
           Activities = []
-          NewActivity = PendingActivity.create None
+          NewActivity = PendingActivity.create SafeDate.today None
           TryAddActivity = NotStarted
           EditingActivity = None
           TryUpdateActivity = NotStarted
@@ -239,6 +240,24 @@ let updateEditing (state: State) (update: EditingActivity -> EditingActivity opt
         | _ -> state
     | _ -> state
 
+let updateWeeks (state: State) (activities: Activity list) =
+    let newSumDays =
+        activities
+        |> List.map (fun activity -> activity.Days.Value)
+        |> List.sum
+    let newStatus =
+        if newSumDays = WorkDays.max.Value then
+            Some WeekStatus.Full
+        elif newSumDays = WorkDays.zero.Value then
+            match state.Week.Age with
+            | WeekAge.Future -> None
+            | age -> WeekStatus.Incomplete age |> Some
+        else
+            WeekStatus.Incomplete state.Week.Age |> Some
+    match state.Weeks with
+    | Some weeks -> weeks |> MonthWeeks.update state.Week.week newStatus |> Some
+    | _ -> None
+
 let update (msg: Msg) (state: State) =
     //printfn "%A" msg
     match msg with
@@ -288,7 +307,10 @@ let update (msg: Msg) (state: State) =
         nextState, nextCmd
 
     | ChangeWeekClicked newWeek ->
-        let nextState = { state with Week = ActiveWeek.create newWeek; TryLoadActivities = InProgress }
+        let week = ActiveWeek.create newWeek
+        // TODO not Friday
+        let pending = { state.NewActivity with Date = week.Friday }
+        let nextState = { state with Week = week; TryLoadActivities = InProgress; NewActivity = pending }
         let nextCmd =
             Cmd.OfPromise.either (uncurry loadActivities) (state.User, newWeek) id onFailed
             |> Cmd.map (Completed >> LoadActivities)
@@ -347,7 +369,11 @@ let update (msg: Msg) (state: State) =
                 match state.Tasks with
                 | t :: ts -> Some t.Id
                 | _ -> None
-            { nextState with Activities = activity :: nextState.Activities; NewActivity = PendingActivity.create defaultTaskId }, Cmd.none
+            // TODO not Friday
+            let pending = PendingActivity.create state.Week.Friday defaultTaskId
+            let newActivities = activity :: nextState.Activities
+            let newWeeks = updateWeeks nextState newActivities
+            { nextState with Activities = newActivities; NewActivity = pending; Weeks = newWeeks }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -356,7 +382,9 @@ let update (msg: Msg) (state: State) =
             match state.Tasks with
             | t :: ts -> Some t.Id
             | _ -> None
-        { state with NewActivity = PendingActivity.create defaultTaskId }, Cmd.none
+        // TODO not Friday
+        let pending = PendingActivity.create state.Week.Friday defaultTaskId
+        { state with NewActivity = pending }, Cmd.none
 
     | EditActivityClicked activity ->
         let editable =
@@ -434,7 +462,8 @@ let update (msg: Msg) (state: State) =
                             Comment = updated.Comment
                         }
                     else activity)
-            { nextState with Activities = newActivities; EditingActivity = None }, Cmd.none
+            let newWeeks = updateWeeks nextState newActivities
+            { nextState with Activities = newActivities; EditingActivity = None; Weeks = newWeeks }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -450,7 +479,9 @@ let update (msg: Msg) (state: State) =
         let nextState = { state with TryDeleteActivity = Resolved delResult }
         match delResult with
         | Ok deleted when deleted ->
-            { nextState with Activities = nextState.Activities |> List.where (fun activity -> activity.Id <> activityId) }, Cmd.none
+            let newActivities = nextState.Activities |> List.where (fun activity -> activity.Id <> activityId)
+            let newWeeks = updateWeeks nextState newActivities
+            { nextState with Activities = newActivities; Weeks = newWeeks }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -584,11 +615,15 @@ let renderWeeks (state: State) (dispatch: Msg -> unit) =
                                     yield Bulma.button.button [
                                         button.isSmall; spacing.mx1; spacing.my1
                                         match isFull with
-                                        | Some b -> if b then color.isSuccess else color.isInfo
+                                        | Some status ->
+                                            match status with
+                                            | WeekStatus.Full -> color.isSuccess
+                                            | WeekStatus.Incomplete WeekAge.Old -> color.isDanger
+                                            | WeekStatus.Incomplete WeekAge.Current -> color.isPrimary; color.isLight
+                                            | WeekStatus.Incomplete WeekAge.Future -> color.isPrimary; color.isLight
                                         | _ -> color.isWhite
                                         prop.key (sprintf "week_%i_%i" state.Year.Value week.Number)
                                         prop.disabled state.EditingActivity.IsSome
-                                        // TODO change week
                                         prop.onClick (fun _ -> ChangeWeekClicked week |> dispatch)
                                         prop.text week.Number
                                     ]

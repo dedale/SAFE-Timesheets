@@ -179,13 +179,12 @@ type MonthNumber with
 type SafeDate = private SafeDate of DateTime
 
 module SafeDate =
-    let private workDay (date: DateTime) =
-        let newDay =
-            match date.DayOfWeek with
-            | DayOfWeek.Saturday -> date.AddDays -1.
-            | DayOfWeek.Sunday -> date.AddDays -2.
-            | _ -> date
-        newDay.Date
+    let private workDay (dateTime: DateTime) =
+        let date = dateTime.Date
+        match date.DayOfWeek with
+        | DayOfWeek.Saturday -> (date.AddDays -1.).Date
+        | DayOfWeek.Sunday -> (date.AddDays -2.).Date
+        | _ -> date
 
     let create (date: DateTime) =
         //if date.TimeOfDay <> TimeSpan.Zero then
@@ -206,6 +205,12 @@ module SafeDate =
 
 type SafeDate with
     member x.Value = SafeDate.value x
+
+[<RequireQualifiedAccess>]
+type WeekAge =
+    | Old
+    | Current
+    | Future
 
 let rec private findMonday (date: DateTime) =
     if date.DayOfWeek = DayOfWeek.Monday
@@ -276,24 +281,39 @@ module Week =
             | Ok date -> ofDate date
             | Error m -> failwith m)
 
+    let Monday (week: Week) =
+        DateTime(week.Year, 1, 4).AddDays(7. * float (week.Number - 1)) |> findMonday |> SafeDate
+
     let range (week: Week) =
-        let Monday = DateTime(week.Year, 1, 4).AddDays(7. * float (week.Number - 1)) |> findMonday
-        let Friday = Monday.AddDays 4.
-        match SafeDate.create Monday, SafeDate.create Friday with
-        | Ok M, Ok F -> M, F
-        | Error m, _ -> failwith m
-        | _, Error m -> failwith m
+        let Monday = Monday week
+        let Friday = Monday.Value.AddDays 4. |> SafeDate
+        Monday, Friday
 
     let current = ofDate SafeDate.today
 
     let activityRoute (UserId i) (week: Week) = sprintf "/api/users/%i/activities/%i/%i" i week.Year week.Number
     let yearRoute (UserId i) (YearNumber y) = sprintf "/api/users/%i/years/%i" i y
 
-// List of full? weeks grouped by months
-type MonthWeeks = private Weeks of (MonthNumber * (Week * bool option) list) list
+    let age (week: Week) =
+        let current = ofDate SafeDate.today
+        if week.Year < current.Year
+        then WeekAge.Old
+        elif week.Year = current.Year && week.Number < current.Number
+        then WeekAge.Old
+        elif week.Year = current.Year && week.Number = current.Number
+        then WeekAge.Current
+        else WeekAge.Future
+
+[<RequireQualifiedAccess>]
+type WeekStatus =
+    | Full
+    | Incomplete of WeekAge
+
+// List of weeks grouped by months
+type MonthWeeks = private Weeks of (MonthNumber * (Week * WeekStatus option) list) list
 
 module MonthWeeks =
-    let create year (tryIsFull: Week -> bool option) =
+    let create year (tryIsFull: Week -> WeekStatus option) =
         let first = Week.first year
         let last = Week.last year
         let monthWeeks =
@@ -305,7 +325,7 @@ module MonthWeeks =
                     w, Week.range w |> fst
                 | Error m -> failwith m)
             |> Seq.groupBy (fun (_, date) ->
-                let d = SafeDate.value date
+                let d = date.Value
                 DateTime(d.Year, d.Month, 1))
             |> Seq.map (fun (month1st, weeks) ->
                 MonthNumber.ofDate month1st,
@@ -316,6 +336,21 @@ module MonthWeeks =
         Weeks monthWeeks
 
     let value (Weeks weeks) = weeks
+
+    let update (week: Week) (status: WeekStatus option) (Weeks monthWeeks) =
+        let weekMonth =
+            let Monday = Week.Monday week
+            let date = Monday.Value
+            DateTime(date.Year, date.Month, 1) |> MonthNumber.ofDate
+        monthWeeks
+        |> List.map (fun (month, weeks) ->
+            if weekMonth.Value = month.Value
+            then month, weeks |> List.map (fun (w, s) ->
+                if w.Number = week.Number
+                then w, status
+                else w, s)
+            else month, weeks)
+        |> Weeks
 
 type WorkDays = private WorkDays of float
 

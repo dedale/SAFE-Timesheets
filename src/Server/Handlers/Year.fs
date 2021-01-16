@@ -23,8 +23,19 @@ let getWeeks (userId: int, year: int) (next: HttpFunc) (ctx: HttpContext) = task
             weekDays
             |> List.map (fun wd -> wd.Week, wd.Days = WorkDays.max)
             |> Map.ofList
-        let monthWeeks = MonthWeeks.create year isWeekFull.TryFind
+        // TODO use floats and factor with Home code
+        let tryIsFull week =
+            match isWeekFull.TryFind week with
+            | Some b when b ->
+                Some WeekStatus.Full
+            | Some b when not b ->
+                Week.age week |> WeekStatus.Incomplete |> Some
+            | _ ->
+                match Week.age week with
+                | WeekAge.Future -> None
+                | age -> Some (WeekStatus.Incomplete age)
+        let monthWeeks = MonthWeeks.create year tryIsFull
         return! ctx.WriteJsonAsync monthWeeks
-    | Error m ->
+    | _ ->
         return! Response.internalError ctx ""
 }
