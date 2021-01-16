@@ -31,23 +31,21 @@ type UpdateActivityResult = Result<Activity, string>
 
 type DeleteActivityResult = Result<bool, string>
 
-type ActiveWeek = private {
-        monday : SafeDate
-        friday : SafeDate
-        week : Week
+type ActiveWeek = {
+        Monday : SafeDate
+        Friday : SafeDate
+        Week : Week
     } with
-        member x.Monday = x.monday
-        member x.Friday = x.friday
-        member x.Number = x.week.Number
-        member x.Year = x.week.Year
-        member x.Age = Week.age x.week
+        member x.Number = x.Week.Number
+        member x.Year = x.Week.Year
+        member x.Age = Week.age x.Week
 
 module ActiveWeek =
     let create week =
         let Monday, Friday = Week.range week
-        { ActiveWeek.monday = Monday
-          friday = Friday
-          week = week }
+        { ActiveWeek.Monday = Monday
+          Friday = Friday
+          Week = week }
     let current = create Week.current
 
 type PendingActivity = {
@@ -77,10 +75,31 @@ type EditingActivity = {
     Comment : string
 }
 
+let getNewDate (week: ActiveWeek) (activities: Activity list) =
+    let rec find (date: DateTimeOffset) (days: float) (activities: Activity list) =
+        match activities with
+        | x :: xs ->
+            if date < x.Date.Value then
+                date
+            else
+                let newDays = days + x.Days.Value
+                let fullDays = float (int newDays)
+                let newDate = date.AddDays(fullDays)
+                find newDate (newDays - fullDays) xs
+        | _ -> date
+    let newDate =
+        activities
+        |> List.sortBy (fun a -> a.Date.Value, -a.Days.Value)
+        |> find week.Monday.Value 0.
+        |> SafeDate.create
+    match newDate with
+    | Ok d -> d
+    | _ -> week.Monday
+
 type State =
     { User : ApplicationUser
       Year : YearNumber
-      Week : ActiveWeek
+      ActiveWeek : ActiveWeek
       Weeks : MonthWeeks option
       Tasks : Task list
       TryLoadWeeks : Deferred<LoadWeeksResult>
@@ -98,7 +117,36 @@ type State =
     // TODO: Adding new activity cannot exceed 5 days
     // TODO: Edit activity cannot exceed 5 days
     member x.TotalDays =
-        x.Activities |> List.sumBy (fun a -> a.Days.Value)
+        let sum =
+            match x.EditingActivity with
+            | Some editing ->
+                x.Activities
+                |> List.sumBy (fun a ->
+                    if a.Id = editing.Id then
+                        match editing.Days with
+                        | Ok days -> days.Value
+                        | _ -> a.Days.Value
+                    else
+                        a.Days.Value)
+            | _ ->
+                x.Activities
+                |> List.sumBy (fun a -> a.Days.Value)
+        Math.Round(sum, 3)
+
+module State =
+    let resetPending (state: State) =
+        let defaultTaskId =
+            match state.Tasks with
+            | t :: ts -> Some t.Id
+            | _ -> None
+        let newDate = getNewDate state.ActiveWeek state.Activities
+        let pending = PendingActivity.create newDate defaultTaskId
+        { state with NewActivity = pending }
+
+    let updateNewDate (state: State) =
+        let newDate = getNewDate state.ActiveWeek state.Activities
+        let pending = { state.NewActivity with Date = newDate }
+        { state with NewActivity = pending }
 
 type Msg =
     | LoadWeeks of PromiseStatus<LoadWeeksResult>
@@ -177,13 +225,11 @@ let loadActivities user (week: Week) = promise {
 
 let onFailed (e: exn) = Error e.Message
 
-// TODO default date = first day not complete
-
 let init user =
     let state =
         { State.User = user
           Year = YearNumber.current
-          Week = ActiveWeek.current
+          ActiveWeek = ActiveWeek.current
           Weeks = None
           Tasks = []
           TryLoadWeeks = NotStarted
@@ -191,7 +237,7 @@ let init user =
           TryLoadActivities = NotStarted
           // Activities
           Activities = []
-          NewActivity = PendingActivity.create SafeDate.today None
+          NewActivity = PendingActivity.create ActiveWeek.current.Monday None
           TryAddActivity = NotStarted
           EditingActivity = None
           TryUpdateActivity = NotStarted
@@ -204,7 +250,6 @@ let init user =
     ]
 
 let addActivity (newActivity: NewActivity) = promise {
-    //printfn "addActivity"
     let body = Encode.Auto.toString(0, newActivity)
     let props = [
         Method HttpMethod.POST
@@ -246,25 +291,34 @@ let updateEditing (state: State) (update: EditingActivity -> EditingActivity opt
     | _ -> state
 
 let updateWeeks (state: State) (activities: Activity list) =
-    let newSumDays =
-        activities
-        |> List.map (fun activity -> activity.Days.Value)
-        |> List.sum
-    let newStatus =
-        if newSumDays = WorkDays.max.Value then
-            Some WeekStatus.Full
-        elif newSumDays = WorkDays.zero.Value then
-            match state.Week.Age with
-            | WeekAge.Future -> None
-            | age -> WeekStatus.Incomplete age |> Some
-        else
-            WeekStatus.Incomplete state.Week.Age |> Some
-    match state.Weeks with
-    | Some weeks -> weeks |> MonthWeeks.update state.Week.week newStatus |> Some
-    | _ -> None
+    if state.ActiveWeek.Year = state.Year.Value then
+        let newSumDays =
+            activities
+            |> List.map (fun activity -> activity.Days.Value)
+            |> List.sum
+        let newStatus =
+            if newSumDays = WorkDays.max.Value then
+                Some WeekStatus.Full
+            elif newSumDays = WorkDays.zero.Value then
+                match state.ActiveWeek.Age with
+                | WeekAge.Future -> None
+                | age -> WeekStatus.Incomplete age |> Some
+            else
+                WeekStatus.Incomplete state.ActiveWeek.Age |> Some
+        match state.Weeks with
+        | Some weeks -> weeks |> MonthWeeks.update state.ActiveWeek.Week newStatus |> Some
+        | _ -> None
+    else
+        state.Weeks
+
+let parseDays (txt: string) =
+    if txt.Length = 0
+    then Double.TryParse "0"
+    elif txt.[0] = '.'
+    then Double.TryParse ("0" + txt)
+    else Double.TryParse txt
 
 let update (msg: Msg) (state: State) =
-    //printfn "%A" msg
     match msg with
     | LoadWeeks (Completed result) ->
         let nextState = { state with TryLoadWeeks = Resolved result }
@@ -286,7 +340,7 @@ let update (msg: Msg) (state: State) =
                 | _ -> None
             let newActivity = { state.NewActivity with TaskId = defaultTaskId }
             let nextCmd =
-                Cmd.OfPromise.either (uncurry loadActivities) (state.User, state.Week.week) id onFailed
+                Cmd.OfPromise.either (uncurry loadActivities) (nextState.User, nextState.ActiveWeek.Week) id onFailed
                 |> Cmd.map (Completed >> LoadActivities)
             { nextState with Tasks = tasks; NewActivity = newActivity }, nextCmd
         | _ ->
@@ -298,7 +352,7 @@ let update (msg: Msg) (state: State) =
         let nextState = { state with TryLoadActivities = Resolved result }
         match result with
         | Ok activities ->
-            { nextState with Activities = activities }, Cmd.none
+            State.updateNewDate { nextState with Activities = activities }, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -313,16 +367,15 @@ let update (msg: Msg) (state: State) =
 
     | ChangeWeekClicked newWeek ->
         let week = ActiveWeek.create newWeek
-        // TODO not Friday
-        let pending = { state.NewActivity with Date = week.Friday }
-        let nextState = { state with Week = week; TryLoadActivities = InProgress; NewActivity = pending }
+        let nextState =
+            { state with ActiveWeek = week; TryLoadActivities = InProgress }
+            |> State.updateNewDate
         let nextCmd =
             Cmd.OfPromise.either (uncurry loadActivities) (state.User, newWeek) id onFailed
             |> Cmd.map (Completed >> LoadActivities)
         nextState, nextCmd
 
     | SetNewDate date ->
-        printfn "SetNewDate %A" date
         match date with
         | Ok d ->
             let newActivity = { state.NewActivity with Date = d }
@@ -335,8 +388,7 @@ let update (msg: Msg) (state: State) =
         { state with NewActivity = newActivity }, Cmd.none
 
     | SetNewDuration text ->
-        // TODO support .001 (begin with .)
-        match Double.TryParse text with
+        match parseDays text with
         | (true, f) ->
             let newActivity = { state.NewActivity with Days = WorkDays.create f; DurationText = text }
             { state with NewActivity = newActivity }, Cmd.none
@@ -348,7 +400,6 @@ let update (msg: Msg) (state: State) =
         { state with NewActivity = newActivity }, Cmd.none
 
     | AddActivityClicked Pending ->
-        // TODO week days <= 5
         match state.User, state.NewActivity.TaskId, state.NewActivity.Days with
         | LoggedIn loggedIn, Some taskId, Ok days ->
             let nextState = { state with TryAddActivity = InProgress }
@@ -370,26 +421,18 @@ let update (msg: Msg) (state: State) =
         let nextState = { state with TryAddActivity = Resolved addResult }
         match addResult with
         | Ok activity ->
-            let defaultTaskId =
-                match state.Tasks with
-                | t :: ts -> Some t.Id
-                | _ -> None
-            // TODO not Friday
-            let pending = PendingActivity.create state.Week.Friday defaultTaskId
             let newActivities = activity :: nextState.Activities
             let newWeeks = updateWeeks nextState newActivities
-            { nextState with Activities = newActivities; NewActivity = pending; Weeks = newWeeks }, Cmd.none
+            let nextState =
+                { nextState with Activities = newActivities; Weeks = newWeeks }
+                |> State.resetPending
+                |> State.updateNewDate
+            nextState, Cmd.none
         | _ ->
             nextState, Cmd.none
 
     | CancelAddClicked ->
-        let defaultTaskId =
-            match state.Tasks with
-            | t :: ts -> Some t.Id
-            | _ -> None
-        // TODO not Friday
-        let pending = PendingActivity.create state.Week.Friday defaultTaskId
-        { state with NewActivity = pending }, Cmd.none
+        State.resetPending state, Cmd.none
 
     | EditActivityClicked activity ->
         let editable =
@@ -416,8 +459,7 @@ let update (msg: Msg) (state: State) =
 
     | UpdateDuration text ->
         let update (editing: EditingActivity) =
-            // TODO support .001 (begin with .)
-            match Double.TryParse text with
+            match parseDays text with
             | (true, f) -> Some { editing with Days = WorkDays.create f; DurationText = text }
             | (false,_) -> None
         updateEditing state update, Cmd.none
@@ -430,7 +472,6 @@ let update (msg: Msg) (state: State) =
         { state with EditingActivity = None }, Cmd.none
 
     | SaveActivityClicked Pending ->
-        // TODO week days <= 5
         match state.EditingActivity with
         | Some updating ->
             match updating.Days with
@@ -468,7 +509,10 @@ let update (msg: Msg) (state: State) =
                         }
                     else activity)
             let newWeeks = updateWeeks nextState newActivities
-            { nextState with Activities = newActivities; EditingActivity = None; Weeks = newWeeks }, Cmd.none
+            let nextState =
+                { nextState with Activities = newActivities; EditingActivity = None; Weeks = newWeeks }
+                |> State.updateNewDate
+            nextState, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -486,7 +530,10 @@ let update (msg: Msg) (state: State) =
         | Ok deleted when deleted ->
             let newActivities = nextState.Activities |> List.where (fun activity -> activity.Id <> activityId)
             let newWeeks = updateWeeks nextState newActivities
-            { nextState with Activities = newActivities; Weeks = newWeeks }, Cmd.none
+            let nextState =
+                { nextState with Activities = newActivities; Weeks = newWeeks }
+                |> State.updateNewDate
+            nextState, Cmd.none
         | _ ->
             nextState, Cmd.none
 
@@ -689,8 +736,8 @@ let renderActivity (taskNameOfId: Map<TaskId, string>) (activity: Activity) (sta
 let renderEditActivity (activity: EditingActivity) (state: State) dispatch =
     Html.tr [
         Html.td [
-            let hasPrev = activity.Date.Value > state.Week.Monday.Value
-            let hasNext = activity.Date.Value < state.Week.Friday.Value
+            let hasPrev = activity.Date.Value > state.ActiveWeek.Monday.Value
+            let hasNext = activity.Date.Value < state.ActiveWeek.Friday.Value
             prop.style [
                 style.verticalAlign.middle
                 if hasPrev && not hasNext then style.textAlign.left
@@ -742,14 +789,7 @@ let renderEditActivity (activity: EditingActivity) (state: State) dispatch =
         ]
         let daysOk =
             match activity.Days with
-            | Ok days ->
-                let sum = 
-                    state.Activities
-                    |> List.sumBy (fun a ->
-                        if a.Id = activity.Id
-                        then days.Value
-                        else a.Days.Value)
-                days.Value > 0. && sum <= WorkDays.max.Value
+            | Ok days -> days.Value > 0. && state.TotalDays <= WorkDays.max.Value
             | _ -> false
         Html.td [
             Bulma.control.div [
@@ -809,12 +849,29 @@ let renderActivities (state: State) dispatch =
         | _ ->
             renderActivity taskNameOfId activity state dispatch)
 
+let renderWeekDays (state: State) =
+    Html.tr [
+        Html.td []
+        Html.td []
+        Html.td [
+            prop.style [
+                style.textAlign.right
+            ]
+            prop.children [
+                Html.strong [
+                    prop.text (state.TotalDays.ToString())
+                ]
+            ]
+        ]
+        Html.td []
+    ]
+
 let renderNewActivity (state: State) dispatch =
     let newActivity = state.NewActivity
     Html.tr [
         Html.td [
-            let hasPrev = newActivity.Date.Value > state.Week.Monday.Value
-            let hasNext = newActivity.Date.Value < state.Week.Friday.Value
+            let hasPrev = newActivity.Date.Value > state.ActiveWeek.Monday.Value
+            let hasNext = newActivity.Date.Value < state.ActiveWeek.Friday.Value
             prop.style [
                 style.verticalAlign.middle
                 if hasPrev && not hasNext then style.textAlign.left
@@ -924,7 +981,7 @@ let renderWeekActivity (state: State) dispatch =
         ]
         Bulma.button.button [
             button.isStatic; button.isLarge; spacing.mx3
-            prop.text (sprintf "Week %i of %i" state.Week.Number state.Week.Year)
+            prop.text (sprintf "Week %i of %i" state.ActiveWeek.Number state.ActiveWeek.Year)
         ] |> centerTable
         Html.table [
             prop.style [
@@ -947,6 +1004,9 @@ let renderWeekActivity (state: State) dispatch =
                 Html.tbody [
                     for row in renderActivities state dispatch do
                         row
+                    if state.TotalDays < WorkDays.max.Value || state.EditingActivity.IsSome then
+                        if state.Activities.Length > 1 then
+                            renderWeekDays state
                     if state.TotalDays < WorkDays.max.Value then
                         renderNewActivity state dispatch
                 ]
