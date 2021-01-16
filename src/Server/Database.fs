@@ -14,8 +14,9 @@ let defaultFile = Assembly.ExecutingDir.FileInDir("timesheets.sqlite3")
 
 type FileConnection private (sqlite) =
     new (file: FilePath) =
-        let connectionString = sprintf "Data Source = %s;" file.Path
-        new FileConnection(new SqliteConnection(connectionString))
+        let connectionString = sprintf "Data Source=%s" file.Path
+        let sqlite = new SqliteConnection(connectionString)
+        new FileConnection(sqlite)
     member __.Value = sqlite
     interface IDisposable with
         member __.Dispose() = sqlite.Dispose()
@@ -102,7 +103,7 @@ module TypeHandlers =
             if Object.ReferenceEquals(value, null) || value = box DBNull.Value
             then None
             else
-                let date = value :?> string |> DateTime.Parse
+                let date = value :?> string |> DateTimeOffset.Parse
                 match SafeDate.create date with
                 | Ok x -> Some x
                 | _ -> None
@@ -118,7 +119,7 @@ module TypeHandlers =
 
         override __.Parse(value: obj) =
             let s = value :?> string
-            let date = s |> DateTime.Parse
+            let date = s |> DateTimeOffset.Parse
             match SafeDate.create date with
             | Ok x -> x
             | _ -> failwith (sprintf "Failed to parse '%A' as SafeDate" value)

@@ -142,7 +142,7 @@ module YearNumber =
     // 2007-01-01 is a Monday
     let min = 2007
     let max = 2050
-    let current = YearNumber DateTime.UtcNow.Year
+    let current = YearNumber DateTimeOffset.UtcNow.Year
     let create year =
         if year < min then
             Error (sprintf "Year should be >= %i" min)
@@ -169,24 +169,24 @@ module MonthNumber =
         else
             MonthNumber month |> Ok
 
-    let ofDate (date: DateTime) = MonthNumber date.Month
+    let ofDate (date: DateTimeOffset) = MonthNumber date.Month
 
     let value (MonthNumber month) = month
 
 type MonthNumber with
     member x.Value = MonthNumber.value x
 
-type SafeDate = private SafeDate of DateTime
+type SafeDate = private SafeDate of DateTimeOffset
 
 module SafeDate =
-    let private workDay (dateTime: DateTime) =
-        let date = dateTime.Date
+    let private workDay (dateTime: DateTimeOffset) =
+        let date = dateTime
         match date.DayOfWeek with
-        | DayOfWeek.Saturday -> (date.AddDays -1.).Date
-        | DayOfWeek.Sunday -> (date.AddDays -2.).Date
+        | DayOfWeek.Saturday -> (date.AddDays -1.)
+        | DayOfWeek.Sunday -> (date.AddDays -2.)
         | _ -> date
 
-    let create (date: DateTime) =
+    let create (date: DateTimeOffset) =
         //if date.TimeOfDay <> TimeSpan.Zero then
         //    Error "TimeOfDay should be zero"
         //else
@@ -196,9 +196,9 @@ module SafeDate =
 
     let value (SafeDate d) = d
 
-    let today = workDay DateTime.Today |> SafeDate
+    let today = workDay DateTimeOffset.UtcNow |> SafeDate
 
-    let min = SafeDate (DateTime(YearNumber.min, 1, 1))
+    let min = SafeDate (DateTimeOffset(DateTime(YearNumber.min, 1, 1)))
 
     let tryPrev (SafeDate date) = create (date.AddDays(-1.))
     let tryNext (SafeDate date) = create (date.AddDays(1.))
@@ -212,10 +212,12 @@ type WeekAge =
     | Current
     | Future
 
-let rec private findMonday (date: DateTime) =
+let rec private findMonday (date: DateTimeOffset) =
     if date.DayOfWeek = DayOfWeek.Monday
     then date
     else findMonday (date.AddDays -1.)
+
+let private January4 year = DateTimeOffset(DateTime(year, 1, 4))
 
 type Week = private {
         number: int
@@ -242,12 +244,12 @@ module Week =
     let ofDate (date: SafeDate) =
         let value = date.Value
         let Monday1, year =
-            let thisYear = DateTime(value.Year, 1, 4) |> findMonday
+            let thisYear = January4 value.Year |> findMonday
             // First days of year before first Monday when Monday <= Jan 4
             if thisYear > value
-            then DateTime(value.Year - 1, 1, 4) |> findMonday, value.Year - 1
+            then January4 (value.Year - 1) |> findMonday, value.Year - 1
             else
-                let nextYear = DateTime(value.Year + 1, 1, 4) |> findMonday
+                let nextYear = January4 (value.Year + 1) |> findMonday
                 // Last days of year when first Monday of next year > Jan 4
                 if nextYear <= value
                 then nextYear, value.Year + 1
@@ -261,7 +263,7 @@ module Week =
         elif number >= 54
         then Error "Number should be <= 53"
         else
-            match SafeDate.create (DateTime(year, 1, 4).AddDays(7. * float (number - 1))) with
+            match SafeDate.create ((January4 year).AddDays(7. * float (number - 1))) with
             | Error m -> Error m
             | Ok date ->
                 let expected = ofDate date
@@ -274,7 +276,7 @@ module Week =
         | Ok week -> week
         | Error m -> failwith m
     let last year =
-        DateTime(year + 1, 1, 4).AddDays(-7.)
+        (January4 (year + 1)).AddDays(-7.)
         |> SafeDate.create
         |> (fun x ->
             match x with
@@ -282,7 +284,7 @@ module Week =
             | Error m -> failwith m)
 
     let Monday (week: Week) =
-        DateTime(week.Year, 1, 4).AddDays(7. * float (week.Number - 1)) |> findMonday |> SafeDate
+        (January4 week.Year).AddDays(7. * float (week.Number - 1)) |> findMonday |> SafeDate
 
     let range (week: Week) =
         let Monday = Monday week
@@ -326,7 +328,7 @@ module MonthWeeks =
                 | Error m -> failwith m)
             |> Seq.groupBy (fun (_, date) ->
                 let d = date.Value
-                DateTime(d.Year, d.Month, 1))
+                DateTimeOffset(DateTime(d.Year, d.Month, 1)))
             |> Seq.map (fun (month1st, weeks) ->
                 MonthNumber.ofDate month1st,
                 Seq.map fst weeks
@@ -341,7 +343,7 @@ module MonthWeeks =
         let weekMonth =
             let Monday = Week.Monday week
             let date = Monday.Value
-            DateTime(date.Year, date.Month, 1) |> MonthNumber.ofDate
+            DateTimeOffset(DateTime(date.Year, date.Month, 1)) |> MonthNumber.ofDate
         monthWeeks
         |> List.map (fun (month, weeks) ->
             if weekMonth.Value = month.Value
