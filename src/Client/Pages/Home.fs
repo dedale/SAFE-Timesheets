@@ -94,6 +94,11 @@ type State =
       TryUpdateActivity : Deferred<UpdateActivityResult>
       TryDeleteActivity : Deferred<DeleteActivityResult>
     }
+    // TODO: no add when week full
+    // TODO: Adding new activity cannot exceed 5 days
+    // TODO: Edit activity cannot exceed 5 days
+    member x.TotalDays =
+        x.Activities |> List.sumBy (fun a -> a.Days.Value)
 
 type Msg =
     | LoadWeeks of PromiseStatus<LoadWeeksResult>
@@ -737,7 +742,14 @@ let renderEditActivity (activity: EditingActivity) (state: State) dispatch =
         ]
         let daysOk =
             match activity.Days with
-            | Ok days -> days.Value > 0.
+            | Ok days ->
+                let sum = 
+                    state.Activities
+                    |> List.sumBy (fun a ->
+                        if a.Id = activity.Id
+                        then days.Value
+                        else a.Days.Value)
+                days.Value > 0. && sum <= WorkDays.max.Value
             | _ -> false
         Html.td [
             Bulma.control.div [
@@ -856,7 +868,8 @@ let renderNewActivity (state: State) dispatch =
         ]
         let daysOk =
             match newActivity.Days with
-            | Ok days -> days.Value > 0.
+            | Ok days ->
+                days.Value > 0. && state.TotalDays + days.Value <= WorkDays.max.Value
             | _ -> false
         Html.td [
             Bulma.control.div [
@@ -934,7 +947,8 @@ let renderWeekActivity (state: State) dispatch =
                 Html.tbody [
                     for row in renderActivities state dispatch do
                         row
-                    renderNewActivity state dispatch
+                    if state.TotalDays < WorkDays.max.Value then
+                        renderNewActivity state dispatch
                 ]
             ]
         ]
