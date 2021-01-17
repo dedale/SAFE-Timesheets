@@ -209,6 +209,8 @@ let week = testList "Week" [
                 Expect.equal friday (friday.Value |> SafeDate.create |> OkOrFail) "Monday recreate"
             )
         )
+
+        Expect.isOk (Week.create 13 2021) "Week 13 2021"
 ]
 
 let days = testList "Days" [

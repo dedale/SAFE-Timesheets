@@ -833,7 +833,9 @@ let renderWeekDays (state: State) =
             ]
             prop.children [
                 Html.strong [
-                    prop.text (state.TotalDays.ToString())
+                    let total = state.TotalDays
+                    if total > WorkDays.max.Value then color.hasTextDanger
+                    prop.text (total.ToString())
                 ]
             ]
         ]
@@ -953,10 +955,45 @@ let renderWeekActivity (state: State) dispatch =
         Html.div [
             prop.style [ style.margin 10 ]
         ]
-        Bulma.button.button [
-            button.isStatic; button.isLarge; spacing.mx3
-            prop.text (sprintf "Week %i of %i" state.ActiveWeek.Number state.ActiveWeek.Year)
+
+        Html.div [
+            spacing.py3
+            prop.children [
+                match Week.create (state.ActiveWeek.Number - 1) state.ActiveWeek.Year with
+                | Ok previous ->
+                    Bulma.button.button [
+                        color.isLight; color.hasTextLink; button.isLarge
+                        if state.TryLoadActivities = InProgress
+                        then button.isLoading
+                        prop.onClick (fun _ -> ChangeWeekClicked previous |> dispatch)
+                        prop.children [
+                            Bulma.icon [
+                                Fa.i [ Fa.Solid.CaretLeft ] []
+                            ]
+                        ]
+                    ]
+                | _ -> Html.none
+                Bulma.button.button [
+                    button.isStatic; button.isLarge; spacing.mx3
+                    prop.text (sprintf "Week %i of %i" state.ActiveWeek.Number state.ActiveWeek.Year)
+                ]
+                match Week.create (state.ActiveWeek.Number + 1) state.ActiveWeek.Year with
+                | Ok next ->
+                    Bulma.button.button [
+                        color.isLight; color.hasTextLink; button.isLarge
+                        if state.TryLoadActivities = InProgress
+                        then button.isLoading
+                        prop.onClick (fun _ -> ChangeWeekClicked next |> dispatch)
+                        prop.children [
+                            Bulma.icon [
+                                Fa.i [ Fa.Solid.CaretRight ] []
+                            ]
+                        ]
+                    ]
+                | _ -> Html.none
+            ]
         ] |> centerTable
+
         Html.table [
             prop.style [
                 style.marginLeft length.auto
