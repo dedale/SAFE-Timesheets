@@ -15,15 +15,6 @@ type Page =
     | Team of Pages.Team.State
     | NotFound
 
-[<RequireQualifiedAccessAttribute>]
-type Url =
-    | Home
-    | NotFound
-    | Login
-    | Admin
-    | Team
-    | Logout
-
 let parseUrl = function
     | [  ] -> Url.Home
     | [ "login" ] -> Url.Login
@@ -124,8 +115,7 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
             | Anonymous -> state, Router.navigate("login", HistoryMode.ReplaceState)
             | LoggedIn user ->
                 if not user.ManagedTeams.IsEmpty then
-                    // TODO Manage more than one team
-                    let teamState, teamCmd = Pages.Team.init user.ManagedTeams.Head
+                    let teamState, teamCmd = Pages.Team.init user
                     show (Page.Team teamState), Cmd.map TeamMsg teamCmd
                 else
                     state, Router.navigate("login", HistoryMode.ReplaceState)

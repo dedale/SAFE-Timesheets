@@ -1,5 +1,8 @@
 ﻿module Pages.Admin
 
+open Client.Domain
+open Client.Navigation
+
 open Shared
 
 open Browser.Types
@@ -953,74 +956,57 @@ let renderTasks (state: State) (dispatch: Msg -> unit) =
         )
     ]
 
-let render state dispatch =
-    centered [
-        Html.h1 [
-            Html.strong (state.User.Username.Value.ToUpper())
-        ]
-
-        Html.p "This is the admin page"
-
-        Html.div [
-            Bulma.button.a [
-                color.isInfo
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format(""))
-                prop.text "Home"
+let render (state: State) dispatch =
+    Html.div [
+        renderNavigation (LoggedIn state.User) Url.Admin
+ 
+        centered [
+            Html.h1 [
+                Html.strong (state.User.Username.Value.ToUpper())
             ]
-            if not state.User.ManagedTeams.IsEmpty then
-                Bulma.button.a [
-                    color.isInfo
-                    prop.style [ style.margin 5 ]
-                    prop.href (Router.format("team"))
-                    prop.text "Team"
-                ]
-            Bulma.button.a [
-                color.isInfo
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("logout"))
-                prop.text "Logout"
-            ]
-        ]
 
-        Bulma.tabs [
-            Html.ul (
-                [ Tab.Users, "Users"
-                  Tab.Teams, "Teams"
-                  Tab.CostCenters, "Cost Centers"
-                  Tab.Tasks, "Common Tasks"
-                ] |> List.map (fun (t, label) ->
-                    Html.li [
-                        if state.Tab = t then tab.isActive
-                        prop.children [
-                            Html.a [
-                                if state.Tab <> t
-                                then prop.onClick (fun _ -> TabChanged t |> dispatch)
-                                prop.text label
+            Html.p "This is the admin page"
+
+            Bulma.tabs [
+                Html.ul (
+                    [ Tab.Users, "Users"
+                      Tab.Teams, "Teams"
+                      Tab.CostCenters, "Cost Centers"
+                      Tab.Tasks, "Common Tasks"
+                    ] |> List.map (fun (t, label) ->
+                        Html.li [
+                            if state.Tab = t then tab.isActive
+                            prop.children [
+                                Html.a [
+                                    if state.Tab <> t
+                                    then prop.onClick (fun _ -> TabChanged t |> dispatch)
+                                    prop.text label
+                                ]
                             ]
                         ]
-                    ])
-            )
-        ]
-
-        Html.div [
-            prop.style [
-                style.width 600
-                style.textAlign.left
+                    )
+                )
             ]
-            prop.children [
-                if state.Tab = Tab.Users then
-                    renderAddUser state dispatch
-                    renderUsers state dispatch
-                if state.Tab = Tab.Teams then
-                    renderAddTeam state dispatch
-                    renderTeams state dispatch
-                if state.Tab = Tab.CostCenters then
-                    renderAddCostCenter state dispatch
-                    renderCostCenters state dispatch
-                if state.Tab = Tab.Tasks then
-                    renderAddTask state dispatch
-                    renderTasks state dispatch
+
+            Html.div [
+                prop.style [
+                    style.width 600
+                    style.textAlign.left
+                ]
+                prop.children [
+                    if state.Tab = Tab.Users then
+                        renderAddUser state dispatch
+                        renderUsers state dispatch
+                    if state.Tab = Tab.Teams then
+                        renderAddTeam state dispatch
+                        renderTeams state dispatch
+                    if state.Tab = Tab.CostCenters then
+                        renderAddCostCenter state dispatch
+                        renderCostCenters state dispatch
+                    if state.Tab = Tab.Tasks then
+                        renderAddTask state dispatch
+                        renderTasks state dispatch
+                ]
             ]
         ]
     ]

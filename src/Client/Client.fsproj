@@ -8,6 +8,7 @@
     <None Include="index.html" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Domain.fs" />
+    <Compile Include="Navigation.fs" />
     <Compile Include="Pages\Login.fs" />
     <Compile Include="Pages\Home.fs" />
     <Compile Include="Pages\Admin.fs" />

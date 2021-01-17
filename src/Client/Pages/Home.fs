@@ -1,6 +1,7 @@
 ﻿module Pages.Home
 
 open Client.Domain
+open Client.Navigation
 
 open Shared
 
@@ -540,43 +541,13 @@ let update (msg: Msg) (state: State) =
 // TODO From server to use locale?
 let monthPrefixes = [| "Jan"; "Feb"; "Mar"; "Apr"; "May"; "Jun"; "Jul"; "Aug"; "Sep"; "Oct"; "Nov"; "Dec" |]
 
-let renderMenu (state: State) (dispatch: Msg -> unit) =
+let renderWelcome (state: State) (dispatch: Msg -> unit) =
     match state.User with
     | Anonymous ->
-        Html.div [
-            Html.h1 "Welcome, guest"
-            Bulma.button.a [
-                color.isInfo
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("login"))
-                prop.text "Login"
-            ]
-        ]
+        Html.h1 "Welcome, guest"
 
     | LoggedIn user ->
-        Html.div [
-            Html.h1 (sprintf "Welcome, %s" user.Username.Value)
-            if user.IsAdmin then
-                Bulma.button.a [
-                    color.isInfo
-                    prop.style [ style.margin 5 ]
-                    prop.href (Router.format("admin"))
-                    prop.text "Admin"
-                ]
-            if not user.ManagedTeams.IsEmpty then
-                Bulma.button.a [
-                    color.isInfo
-                    prop.style [ style.margin 5 ]
-                    prop.href (Router.format("team"))
-                    prop.text "Team"
-                ]
-            Bulma.button.a [
-                color.isInfo
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("logout"))
-                prop.text "Logout"
-            ]
-        ]
+        Html.h1 (sprintf "Welcome, %s" user.Username.Value)
 
 let centerColumn (element : ReactElement) =
     Bulma.columns [
@@ -856,6 +827,7 @@ let renderWeekDays (state: State) =
         Html.td [
             prop.style [
                 style.textAlign.right
+                style.borderTop (1, borderStyle.solid, "black")
             ]
             prop.children [
                 Html.strong [
@@ -1016,7 +988,9 @@ let renderWeekActivity (state: State) dispatch =
 
 let render (state: State) (dispatch: Msg -> unit) =
     Html.div [
-        renderMenu state dispatch
+        renderNavigation state.User Url.Home
+
+        renderWelcome state dispatch
 
         match state.User with
         | LoggedIn user ->

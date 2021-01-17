@@ -1,5 +1,8 @@
 ﻿module Pages.Team
 
+open Client.Domain
+open Client.Navigation
+
 open Shared
 
 open Elmish
@@ -33,7 +36,8 @@ type Tab =
     | Tasks
 
 type State =
-    { Team : Team
+    { User : LoggedUser
+      Team : Team
       Tab : Tab
       Users : User list
       CostCenters : CostCenter list
@@ -106,8 +110,10 @@ let delTask taskId = promise {
     return res.Ok |> Ok
 }
 
-let init (team: Team) =
-    { Team = team
+let init (user: LoggedUser) =
+    { User = user
+      // TODO Manage more than one team
+      Team = user.ManagedTeams.Head
       Tab = Tab.Users
       Users = []
       CostCenters = []
@@ -364,53 +370,42 @@ let renderTasks (state: State) (dispatch: Msg -> unit) =
     ]
 
 let render (state: State) (dispatch: Msg -> unit) =
-    centered [
-        Html.p (sprintf "%s Team page" state.Team.Name)
+    Html.div [
+        renderNavigation (LoggedIn state.User) Url.Team
 
-        Html.div [
-            Bulma.button.a [
-                color.isInfo
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format(""))
-                prop.text "Home"
-            ]
-            Bulma.button.a [
-                color.isInfo
-                prop.style [ style.margin 5 ]
-                prop.href (Router.format("logout"))
-                prop.text "Logout"
-            ]
-        ]
+        centered [
+            Html.p (sprintf "%s Team page" state.Team.Name)
 
-        Bulma.tabs [
-            Html.ul (
-                [ Tab.Users, "Users"
-                  Tab.Tasks, "Team Tasks"
-                ] |> List.map (fun (t, label) ->
-                    Html.li [
-                        if state.Tab = t then tab.isActive
-                        prop.children [
-                            Html.a [
-                                if state.Tab <> t
-                                then prop.onClick (fun _ -> TabChanged t |> dispatch)
-                                prop.text label
+            Bulma.tabs [
+                Html.ul (
+                    [ Tab.Users, "Users"
+                      Tab.Tasks, "Team Tasks"
+                    ] |> List.map (fun (t, label) ->
+                        Html.li [
+                            if state.Tab = t then tab.isActive
+                            prop.children [
+                                Html.a [
+                                    if state.Tab <> t
+                                    then prop.onClick (fun _ -> TabChanged t |> dispatch)
+                                    prop.text label
+                                ]
                             ]
-                        ]
-                    ])
-            )
-        ]
-
-        Html.div [
-            prop.style [
-                style.width 600
-                style.textAlign.left
+                        ])
+                )
             ]
-            prop.children [
-                if state.Tab = Tab.Users then
-                    renderUsers state dispatch
-                if state.Tab = Tab.Tasks then
-                    renderAddTask state dispatch
-                    renderTasks state dispatch
+
+            Html.div [
+                prop.style [
+                    style.width 600
+                    style.textAlign.left
+                ]
+                prop.children [
+                    if state.Tab = Tab.Users then
+                        renderUsers state dispatch
+                    if state.Tab = Tab.Tasks then
+                        renderAddTask state dispatch
+                        renderTasks state dispatch
+                ]
             ]
         ]
     ]
