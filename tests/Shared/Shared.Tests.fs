@@ -12,17 +12,17 @@ let OkOrFail result =
 
 let date = testList "Date" [
     testCase "Create requires zero TimeOfDay" <| fun _ ->
-        let error = SafeDate.create DateTime.UtcNow
+        let error = SafeDate.create DateTimeOffset.UtcNow
         let expected = Error "TimeOfDay should be zero"
         Expect.equal error expected ""
 
     testCase "Create requires year >= 2007" <| fun _ ->
-        let error = DateTime(2006, 12, 31) |> SafeDate.create
+        let error = DateTime(2006, 12, 31) |> DateTimeOffset |> SafeDate.create
         let expected = Error "Year should be >= 2007"
         Expect.equal error expected ""
 
     testCase "Create recent date" <| fun _ ->
-        let result = SafeDate.create DateTime.Today
+        let result = SafeDate.create DateTimeOffset.UtcNow
         Expect.isOk result "Should create date"
 
     testCase "Min should be a Monday" <| fun _ ->
@@ -50,7 +50,7 @@ let week = testList "Week" [
         new DateTime(2021, 1, 11), 2
     ] |> List.map (fun (date, number) ->
         test (date.ToString()) {
-            let week = date |> SafeDate.create |> OkOrFail |> Week.ofDate
+            let week = date |> DateTimeOffset |> SafeDate.create |> OkOrFail |> Week.ofDate
             Expect.equal week.Number number (sprintf "Bad week number for %A" date)
         })
     )
@@ -64,8 +64,8 @@ let week = testList "Week" [
         new DateTime(2021, 1, 11), new DateTime(2021, 1, 11)
     ] |> List.map (fun (date, expected) ->
         test (date.ToString()) {
-            let start = date |> SafeDate.create |> OkOrFail |> Week.start
-            Expect.equal start.Value expected (sprintf "Bad start of week for %A" date)
+            let start = date |> DateTimeOffset |> SafeDate.create |> OkOrFail |> Week.start
+            Expect.equal start.Value (DateTimeOffset expected) (sprintf "Bad start of week for %A" date)
         })
     )
 
@@ -78,8 +78,8 @@ let week = testList "Week" [
         new DateTime(2021, 1, 11), new DateTime(2021, 1, 15)
     ] |> List.map (fun (date, expected) ->
         test (date.ToString()) {
-            let finish = date |> SafeDate.create |> OkOrFail |> Week.finish
-            Expect.equal finish.Value expected (sprintf "Bad end of week for %A" date)
+            let finish = date |> DateTimeOffset |> SafeDate.create |> OkOrFail |> Week.finish
+            Expect.equal finish.Value (DateTimeOffset expected) (sprintf "Bad end of week for %A" date)
         })
     )
 
@@ -140,7 +140,7 @@ let week = testList "Week" [
                 match Week.create 1 2021 with
                 | Ok w -> let m, f = (Week.range w) in m.Value, f.Value
                 | Error m -> failtest m
-            let expected = DateTime(2021, 1, 4), DateTime(2021, 1, 8)
+            let expected = DateTime(2021, 1, 4) |> DateTimeOffset, DateTime(2021, 1, 8) |> DateTimeOffset
             Expect.equal actual expected ""
 
         testCase "2020.53" <| fun _ ->
@@ -148,7 +148,7 @@ let week = testList "Week" [
                 match Week.create 53 2020 with
                 | Ok w -> let m, f = (Week.range w) in m.Value, f.Value
                 | Error m -> failtest m
-            let expected = DateTime(2020, 12, 28), DateTime(2021, 1, 1)
+            let expected = DateTime(2020, 12, 28) |> DateTimeOffset, DateTime(2021, 1, 1) |> DateTimeOffset
             Expect.equal actual expected ""
     ]
 ]

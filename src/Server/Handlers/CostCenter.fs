@@ -13,17 +13,17 @@ open Saturn.ControllerHelpers
 let getCostCenters (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let costCenter = Queries.CostCenter connectionF
-    let costCenters = costCenter.GetAll() |> Async.map List.ofSeq |> Async.RunSynchronously
+    let queries = Queries.CostCenter connectionF
+    let costCenters = queries.GetAll() |> Async.map List.ofSeq |> Async.RunSynchronously
     return! ctx.WriteJsonAsync costCenters
 }
 
 let addCostCenter (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let costCenter = Queries.CostCenter connectionF
+    let queries = Queries.CostCenter connectionF
     let! name = ctx.BindJsonAsync<string>()
-    let! created = costCenter.New name
+    let! created = queries.New name
     match created with
     | Some costCenterId ->
         let costCenter =
@@ -37,8 +37,8 @@ let addCostCenter (next: HttpFunc) (ctx: HttpContext) = task {
 let delCostCenter (costCenterId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let costCenter = Queries.CostCenter connectionF
-    let! _ = CostCenterId costCenterId |> costCenter.Delete
+    let queries = Queries.CostCenter connectionF
+    let! _ = CostCenterId costCenterId |> queries.Delete
     // TODO fail if used (handled by constraints?)
     return! ctx.WriteJsonAsync ""
 }

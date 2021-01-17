@@ -23,14 +23,14 @@ type TempDb private (temp, connection, connectionF) =
             temp.Dispose()
     member __.ConnectionF = connectionF
     member __.Create() = async {
-        let schema = Queries.Schema connectionF
-        let! _ = schema.CreateTables()
+        let queries = Queries.Schema connectionF
+        let! _ = queries.CreateTables()
         ()
     }
     member __.NewUser login name = async {
-        let user = Queries.User connectionF
-        let! newId = user.New login name None None
-        let! created = user.GetSingleByLogin login
+        let queries = Queries.User connectionF
+        let! newId = queries.New login name None None
+        let! created = queries.GetSingleByLogin login
         return
             match created with
             | Some x ->
@@ -39,9 +39,9 @@ type TempDb private (temp, connection, connectionF) =
             | _ -> failwith (sprintf "User '%s' not created" login)
     }
     member __.NewTeam name managerId = async {
-        let team = Queries.Team connectionF
-        let! newId = team.New name managerId
-        let! created = team.GetSingleByName name
+        let queries = Queries.Team connectionF
+        let! newId = queries.New name managerId
+        let! created = queries.GetSingleByName name
         return
             match created with
             | Some x ->
@@ -50,9 +50,9 @@ type TempDb private (temp, connection, connectionF) =
             | _ -> failwith (sprintf "Team '%s' not created" name)
     }
     member __.NewCostCenter name = async {
-        let costCenter = Queries.CostCenter connectionF
-        let! newId = costCenter.New name
-        let! created = costCenter.GetSingleByName name
+        let queries = Queries.CostCenter connectionF
+        let! newId = queries.New name
+        let! created = queries.GetSingleByName name
         return
             match created with
             | Some x ->
@@ -61,9 +61,9 @@ type TempDb private (temp, connection, connectionF) =
             | _ -> failwith (sprintf "CostCenter '%s' not created" name)
     }
     member __.NewTask name (costCenterId: CostCenterId) = async {
-        let task = Queries.Task connectionF
-        let! newId = task.New name costCenterId
-        let! created = task.GetSingleByName name
+        let queries = Queries.Task connectionF
+        let! newId = queries.New name costCenterId
+        let! created = queries.GetSingleByName name
         return
             match created with
             | Some x ->
@@ -72,8 +72,8 @@ type TempDb private (temp, connection, connectionF) =
             | _ -> failwith (sprintf "task '%s' not created" name)
     }
     member _.NewTeamTask teamId name costCenterId = async {
-        let task = Queries.Task connectionF
-        let! created = task.NewTeamTask teamId name costCenterId
+        let queries = Queries.Task connectionF
+        let! created = queries.NewTeamTask teamId name costCenterId
         return
             match created with
             | Some x -> x
@@ -125,9 +125,9 @@ let teamMember = testList "TeamMember" [
         let! manager = db.NewUser "manager" "Mike ANAGER"
         let! team = db.NewTeam "The Missing" manager.Id
 
-        let teamMember = Queries.TeamMember db.ConnectionF
-        let! _ = teamMember.New john.Id team.Id
-        let! members = teamMember.GetAll()
+        let queries = Queries.TeamMember db.ConnectionF
+        let! _ = queries.New john.Id team.Id
+        let! members = queries.GetAll()
         Expect.hasCountOf members 1u (fun _ -> true) ""
         let first = members |> Seq.head
         Expect.equal first.UserId john.Id ""
@@ -141,15 +141,15 @@ let teamMember = testList "TeamMember" [
         let! manager = db.NewUser "manager" "Mike ANAGER"
         let! team = db.NewTeam "The Missing" manager.Id
 
-        let teamMember = Queries.TeamMember db.ConnectionF
+        let queries = Queries.TeamMember db.ConnectionF
 
         Expect.throws (fun () ->
-            teamMember.New (UserId (john.Id.Value + 1)) team.Id
+            queries.New (UserId (john.Id.Value + 1)) team.Id
             |> Async.RunSynchronously
             |> ignore) "UserId foreign key missing in TeamMember"
 
         Expect.throws (fun () ->
-            teamMember.New john.Id (TeamId (team.Id.Value + 1))
+            queries.New john.Id (TeamId (team.Id.Value + 1))
             |> Async.RunSynchronously
             |> ignore) "TeamId foreign key missing in TeamMember"
     }
@@ -162,8 +162,8 @@ let teamManager = testList "TeamManager" [
         let! manager = db.NewUser "manager" "Mike ANAGER"
         let! team = db.NewTeam "The Team" manager.Id
 
-        let teamManager = Queries.TeamManager db.ConnectionF
-        let! teamManagers = teamManager.GetAll()
+        let queries = Queries.TeamManager db.ConnectionF
+        let! teamManagers = queries.GetAll()
         Expect.hasCountOf teamManagers 1u (fun _ -> true) ""
         let first = teamManagers |> Seq.head
         Expect.equal first.TeamId team.Id ""
@@ -176,15 +176,15 @@ let teamManager = testList "TeamManager" [
         let! manager = db.NewUser "manager" "Mike ANAGER"
         let! team = db.NewTeam "The Team" manager.Id
 
-        let teamManager = Queries.TeamManager db.ConnectionF
+        let queries = Queries.TeamManager db.ConnectionF
 
         Expect.throws (fun () ->
-            teamManager.New (TeamId (team.Id.Value + 1)) manager.Id
+            queries.New (TeamId (team.Id.Value + 1)) manager.Id
             |> Async.RunSynchronously
             |> ignore) "TeamId foreign key missing in TeamManager"
 
         Expect.throws (fun () ->
-            teamManager.New team.Id (UserId (manager.Id.Value + 1))
+            queries.New team.Id (UserId (manager.Id.Value + 1))
             |> Async.RunSynchronously
             |> ignore) "ManagerId foreign key missing in TeamManager"
     }
@@ -217,10 +217,10 @@ let task = testList "Task" [
         do! db.Create()
         let! costCenter = db.NewCostCenter "Projects"
 
-        let task = Queries.Task db.ConnectionF
+        let queries = Queries.Task db.ConnectionF
 
         Expect.throws (fun () ->
-            task.New "Task name" (CostCenterId (costCenter.Id.Value + 1))
+            queries.New "Task name" (CostCenterId (costCenter.Id.Value + 1))
             |> Async.RunSynchronously
             |> ignore) "CostCenterId foreign key missing in Task"
     }
@@ -233,11 +233,11 @@ let activity = testList "Activity" [
         let! user = db.NewUser "jdoe" "John DOE"
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
-        let activity = Queries.Activity db.ConnectionF
-        let today = SafeDate.today
+        let queries = Queries.Activity db.ConnectionF
+        let today = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail
         let comment = "Rewrite with F#, Fable, SAFE-Stack, Expecto, Dapper, etc."
-        let! _ = activity.New user.Id today task.Id 1. comment
-        let! activities = activity.GetWeek user.Id (Week.ofDate today)
+        let! _ = queries.New user.Id today task.Id 1. comment
+        let! activities = queries.GetWeek user.Id (Week.ofDate today)
         Expect.hasCountOf activities 1u (fun _ -> true) ""
         let first = activities |> Seq.head
         Expect.equal first.Date today ""
@@ -253,24 +253,24 @@ let activity = testList "Activity" [
         let! otherUser = db.NewUser "other" "Owen THER"
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
-        let activity = Queries.Activity db.ConnectionF
-        let prevFriday = DateTime(2021, 1, 1) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New user.Id prevFriday task.Id 1. "Previous week"
-        let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New user.Id Monday task.Id 1. "Monday"
-        let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New otherUser.Id Monday task.Id 1. "Monday other user"
-        let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New user.Id Friday task.Id 1. "Friday"
-        let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New otherUser.Id Friday task.Id 1. "Friday other user"
-        let nextMonday = DateTime(2021, 1, 11) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New user.Id nextMonday task.Id 1. "Next week"
+        let queries = Queries.Activity db.ConnectionF
+        let prevFriday = DateTime(2021, 1, 1) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New user.Id prevFriday task.Id 1. "Previous week"
+        let Monday = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New user.Id Monday task.Id 1. "Monday"
+        let Monday = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New otherUser.Id Monday task.Id 1. "Monday other user"
+        let Friday = DateTime(2021, 1, 8) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New user.Id Friday task.Id 1. "Friday"
+        let Friday = DateTime(2021, 1, 8) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New otherUser.Id Friday task.Id 1. "Friday other user"
+        let nextMonday = DateTime(2021, 1, 11) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New user.Id nextMonday task.Id 1. "Next week"
         let week =
             match Week.create 1 2021 with
             | Ok w -> w
             | Error m -> failtest m
-        let! activities = activity.GetWeek user.Id week
+        let! activities = queries.GetWeek user.Id week
         let sorted = Array.ofSeq activities |> Array.sortBy (fun a -> a.Date.Value)
         Expect.hasCountOf sorted 2u (fun _ -> true) "Should take only select week & user"
         Expect.equal (sorted.[0].Comment) "Monday" ""
@@ -283,19 +283,19 @@ let activity = testList "Activity" [
         let! user = db.NewUser "jdoe" "John DOE"
         let! costCenter = db.NewCostCenter "Projects"
         let! task = db.NewTask "Timesheet" costCenter.Id
-        let activity = Queries.Activity db.ConnectionF
-        let Monday = DateTime(2021, 1, 4) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New user.Id Monday task.Id 1. "Monday"
-        let Friday = DateTime(2021, 1, 8) |> SafeDate.create |> OkOrFail 
-        let! _ = activity.New user.Id Friday task.Id 1. "Friday"
+        let queries = Queries.Activity db.ConnectionF
+        let Monday = DateTime(2021, 1, 4) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New user.Id Monday task.Id 1. "Monday"
+        let Friday = DateTime(2021, 1, 8) |> DateTimeOffset |> SafeDate.create |> OkOrFail 
+        let! _ = queries.New user.Id Friday task.Id 1. "Friday"
         let week =
             match Week.create 1 2021 with
             | Ok w -> w
             | Error m -> failtest m
-        let! activities = activity.GetWeek user.Id week
+        let! activities = queries.GetWeek user.Id week
         let first = activities |> Seq.head
-        let! _ = activity.Delete first.Id
-        let! activities = activity.GetWeek user.Id week
+        let! _ = queries.Delete first.Id
+        let! activities = queries.GetWeek user.Id week
         Expect.hasCountOf activities 1u (fun _ -> true) ""
     }
 ]

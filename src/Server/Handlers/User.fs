@@ -15,18 +15,10 @@ open System.Text.RegularExpressions
 let getUsers (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let user = Queries.User connectionF
-    let users = user.GetAll() |> Async.map List.ofSeq |> Async.RunSynchronously
+    let queries = Queries.User connectionF
+    let users = queries.GetAll() |> Async.map List.ofSeq |> Async.RunSynchronously
     return! ctx.WriteJsonAsync users
 }
-
-//let getTeams (userId: int) (next: HttpFunc) (ctx: HttpContext) = task {
-//    use connection = new FileConnection(defaultFile)
-//    let connectionF () = Connection.SqliteConnection connection.Value
-//    let team = Queries.Team connectionF
-//    let teams = team.GetTeams(UserId userId) |> Async.map List.ofSeq |> Async.RunSynchronously
-//    return! ctx.WriteJsonAsync teams
-//}
 
 let dummyNames = [
     "Archibald"
@@ -77,8 +69,8 @@ let validate (username: string) = task {
         | Ok full ->
             use connection = new FileConnection(defaultFile)
             let connectionF () = Connection.SqliteConnection connection.Value
-            let user = Queries.User connectionF
-            let! created = user.New login full None None
+            let queries = Queries.User connectionF
+            let! created = queries.New login full None None
             match created with
             | Some userId ->
                 return Ok
@@ -104,8 +96,8 @@ let addUser (next: HttpFunc) (ctx: HttpContext) = task {
 let delUser (userId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let user = Queries.User connectionF
-    let! _ = UserId userId |> user.Delete
+    let queries = Queries.User connectionF
+    let! _ = UserId userId |> queries.Delete
     // TODO fail if used (handled by constraints?)
     return! ctx.WriteJsonAsync ""
 }

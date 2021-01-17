@@ -13,11 +13,11 @@ open Saturn.ControllerHelpers
 let getWeeks (userId: int, year: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let weekDays = Queries.WeekDays connectionF
+    let queries = Queries.WeekDays connectionF
     match YearNumber.create year with
     | Ok y ->
         let weekDays =
-            weekDays.GetWeeks (UserId userId) y
+            queries.GetWeeks (UserId userId) y
             |> Async.RunSynchronously
         let isWeekFull =
             weekDays

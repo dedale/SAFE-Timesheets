@@ -49,16 +49,16 @@ let updateActivity (next: HttpFunc) (ctx: HttpContext) = task {
     let! updatedActivity = ctx.BindJsonAsync<Activity>()
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let activity = Queries.Activity connectionF
-    let! _ = activity.Update updatedActivity
+    let queries = Queries.Activity connectionF
+    let! _ = queries.Update updatedActivity
     return! ctx.WriteJsonAsync updatedActivity
 }
 
 let delActivity (activityId: int) (next: HttpFunc) (ctx: HttpContext) = task {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let activity = Queries.Activity connectionF
-    let! _ = ActivityId activityId |> activity.Delete
+    let queries = Queries.Activity connectionF
+    let! _ = ActivityId activityId |> queries.Delete
     // TODO fail if used (handled by constraints?)
     return! ctx.WriteJsonAsync ""
 }

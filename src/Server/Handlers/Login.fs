@@ -47,23 +47,21 @@ open Giraffe
 open Microsoft.AspNetCore.Http
 open Saturn.ControllerHelpers
 
-let getTeams userId = async {
-    use connection = new FileConnection(defaultFile)
-    let connectionF () = Connection.SqliteConnection connection.Value
-    let team = Queries.Team connectionF
-    let! teams = team.GetTeams userId |> Async.map List.ofSeq
-    let! managed = team.GetManagedBy userId |> Async.map List.ofSeq
+let getTeams userId connectionF = async {
+    let queries = Queries.Team connectionF
+    let! teams = queries.GetTeams userId |> Async.map List.ofSeq
+    let! managed = queries.GetManagedBy userId |> Async.map List.ofSeq
     return teams, managed
 }
 
 let tryUser login = async {
     use connection = new FileConnection(defaultFile)
     let connectionF () = Connection.SqliteConnection connection.Value
-    let user = Queries.User connectionF
-    let! dbUser = user.GetSingleByLogin login
+    let queries = Queries.User connectionF
+    let! dbUser = queries.GetSingleByLogin login
     match dbUser with
     | Some u -> 
-        let! (teams, managed) = getTeams u.Id
+        let! (teams, managed) = getTeams u.Id connectionF
         return
             { LoggedUser.Id = u.Id
               Username = login
