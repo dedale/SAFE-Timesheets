@@ -13,4 +13,5 @@ node_modules/
 release.cmd
 release.sh
 *.orig
-*.DotSettings.user
+*.user
+launchSettings.json

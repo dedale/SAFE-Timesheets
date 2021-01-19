@@ -126,6 +126,8 @@ let update (msg: Msg) (state: State) : State * Cmd<Msg> =
     | _, _ ->
         state, Cmd.none
 
+open Feliz.Bulma
+
 let render (state: State) (dispatch: Msg -> unit) =
     let activePage =
         match state.CurrentPage with
@@ -140,7 +142,11 @@ let render (state: State) (dispatch: Msg -> unit) =
         Router.application [
             Html.div [
                 prop.style [ style.padding 20 ]
-                prop.children [ activePage ]
+                prop.children [
+                    Bulma.container [
+                        activePage
+                    ]
+                ]
             ]
         ]
     ]

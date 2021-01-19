@@ -176,7 +176,6 @@ module Queries =
                 CREATE TABLE Activity (
                     Id INTEGER NOT NULL PRIMARY KEY,
                     Date DATE NOT NULL,
-                    -- Date VARCHAR(8) NOT NULL,
                     UserId INTEGER NOT NULL,
                     TaskId INTEGER NOT NULL,
                     Days FLOAT NOT NULL,
@@ -220,7 +219,6 @@ module Queries =
                     UNIQUE (TeamId, TaskId)
                 );
                 
-                -- TODO unique logins
                 DROP TABLE IF EXISTS User;
                 CREATE TABLE User (
                     Id INTEGER NOT NULL PRIMARY KEY,

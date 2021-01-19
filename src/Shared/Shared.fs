@@ -258,7 +258,7 @@ module Week =
                 if nextYear <= value
                 then nextYear, value.Year + 1
                 else thisYear, value.Year
-        // Round because of daylight saving time
+        // Round because of daylight saving time (in javascript)
         let number = int (Math.Round((value - Monday1).TotalDays)) / 7 + 1
         { number = number; year = year }
 
